@@ -90,6 +90,9 @@ contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
 4. Add the GitHub Actions secrets the workflow reads: `ANTHROPIC_API_KEY`,
    `MTS_EMAIL`, `MTS_PASSWORD`, `GHL_API_TOKEN`, `GHL_LOCATION_ID`,
    `GHL_COMPANY_FIELD_KEY`, `KILLSWITCH_URL`.
+   Until they're added, the job skips the step that needs them instead of
+   failing: lead pick-up needs the MTS login, texts need the GHL token and
+   location ID.
 
 ## Checks
 
