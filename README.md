@@ -56,10 +56,17 @@ contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
 - **After signing**, outside DRY_RUN, the GHL contact gets a note and the
   `ai-rolloff-contract-signed` and `ai-needs-human` tags, so the office
   takes it from there.
-- **Trying it:** `npm run contract:create -- --yards=20 --name="Test Person"
-  --phone=+15555550100 --address="12 Elm St, Greeley, CO 80631"
-  --date=2026-10-20` prints a signing link. The bot doesn't send contract
-  links yet.
+- **Sent by the bot:** once a lead has picked a size, a reply can text them
+  their contract link (`lib/contractLink.ts`). The model only marks where
+  the link goes. A separate call reads the size and day they chose, code
+  checks the size is one Mountain High rents and the day is within 90 days,
+  and the address and phone come from the contact on file. If any of that
+  is missing, or signing isn't set up, nothing is sent and the office takes
+  it. Signing takes no card (Thomas, 2026-10-10): the office calls after.
+- **Trying it by hand:** `npm run contract:create -- --yards=20
+  --name="Test Person" --phone=+15555550100
+  --address="12 Elm St, Greeley, CO 80631" --date=2026-10-20` prints a
+  signing link.
 
 ## Before it goes live
 

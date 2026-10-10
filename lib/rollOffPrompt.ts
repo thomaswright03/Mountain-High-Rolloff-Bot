@@ -1,7 +1,7 @@
 import type { CompanyConfig, RollOffConfig } from "./types.js";
 import { safeFirstName } from "./outboundSafety.js";
 import { TRANSCRIPT_FORMAT_NOTE } from "./prompt.js";
-import { ROLLOFF_BOOKING_LINK_MARKER } from "./rollOff.js";
+import { ROLLOFF_BOOKING_LINK_MARKER, ROLLOFF_CONTRACT_LINK_MARKER } from "./rollOff.js";
 
 // Prompts and the fixed cold open for the roll-off dumpster bot — see
 // lib/rollOff.ts for the flow. Same rules as the Kaizen residential
@@ -38,9 +38,23 @@ ${company.serviceAreaNotes}
 ---`.trim();
 }
 
-const BOOKING_RULES = `
-HOW A BOOKING GETS DONE: you can't book it yourself. There are exactly two
-ways, and your job is to get them to one of them:
+/** `withContract`: replies can send the lead's own contract to sign
+ * (lib/contractLink.ts needs the conversation to build it); follow-ups
+ * can't. */
+function bookingRules(withContract: boolean): string {
+  const contractOption = withContract
+    ? `
+3. They sign their contract by text. Once they've told you which size they
+   want, you can put ${ROLLOFF_CONTRACT_LINK_MARKER} in your reply where the link
+   goes: it's sent as a link to their own contract for that size, which they
+   can read, download to check with their own AI, and sign on their phone.
+   Ask what day they'd like it delivered first if they haven't said. Signing
+   doesn't take payment: say the office will call after they sign to take
+   payment and confirm the delivery date. Never type a URL yourself.`
+    : "";
+  return `
+HOW A BOOKING GETS DONE: you can't book it yourself. There are exactly
+${withContract ? "three" : "two"} ways, and your job is to get them to one of them:
 1. They finish online. Put ${ROLLOFF_BOOKING_LINK_MARKER} in your reply exactly
    where the link goes and the real booking link is sent in its place. Never
    type a URL or web address yourself. Mention the form shows their total
@@ -48,14 +62,15 @@ ways, and your job is to get them to one of them:
 2. The office calls them to book it by phone. Offer this if they'd rather
    not do it online, are stuck on the form, or need something the facts
    don't cover. Once they want the call, tell them the office will give them
-   a call to finish it up, and stop there — don't promise when.
+   a call to finish it up, and stop there — don't promise when.${contractOption}
 
 NEVER ask for, accept, or repeat a card number or any payment detail by
 text. If they send one, don't repeat any of it — tell them to use the
 booking link or the office will call to take it.
 NEVER say the dumpster is booked, scheduled, reserved, or on its way, and
-never promise a delivery date — only finishing the form or the office can
+never promise a delivery date — only finishing the form${withContract ? ", signing plus the office's call," : ""} or the office can
 make that true.`.trim();
+}
 
 const SHARED_CONDUCT = `
 OBJECTIONS: if they hesitate (price, timing, went with someone else, don't
@@ -88,7 +103,7 @@ greeting, e.g. "This is ${company.repName} with the AI team at ${company.display
       : ""
   }
 
-${BOOKING_RULES}
+${bookingRules(true)}
 
 ${SHARED_CONDUCT}
 
@@ -128,7 +143,7 @@ VOICE: ${rollOff.voiceGuide}
 
 ${FOLLOW_UP_SHARED_RULES}
 
-${BOOKING_RULES}
+${bookingRules(false)}
 
 ${buildRollOffFactsBlock(company, rollOff)}
 
@@ -153,10 +168,34 @@ VOICE: ${rollOff.voiceGuide}
 
 ${FOLLOW_UP_SHARED_RULES}
 
-${BOOKING_RULES}
+${bookingRules(false)}
 
 ${buildRollOffFactsBlock(company, rollOff)}
 
 Keep it to 1-2 short sentences. Return exactly one message, nothing else.
+`.trim();
+}
+
+/** Reads which size and delivery day the lead settled on, for the contract
+ * a reply is about to send (lib/contractLink.ts). Today's date and the
+ * transcript go in the user turn. */
+export function buildContractDetailsPrompt(company: CompanyConfig, rollOff: RollOffConfig): string {
+  const sizes = rollOff.contract.sizes.map((s) => s.yards).join(", ");
+  return `
+You pull the roll-off contract details out of a text conversation between
+${company.displayName} ("us") and a lead, so a contract can be made for them.
+
+${TRANSCRIPT_FORMAT_NOTE}
+
+Return exactly one JSON object and nothing else:
+{"yards": number or null, "requested_delivery_date": "YYYY-MM-DD" or null}
+
+- "yards": the dumpster size the lead themselves chose. Must be one of: ${sizes}.
+  null if they haven't clearly picked one, are still deciding, or picked a
+  size not in that list. Never guess from their project.
+- "requested_delivery_date": the day the lead said they want it delivered,
+  as a calendar date, using today's date from the user message to resolve
+  words like "friday" or "next week monday". null if they didn't give one
+  day, or it's vague ("sometime next week", "asap").
 `.trim();
 }

@@ -32,6 +32,11 @@ export const ROLLOFF_BOOKED_TAG = "ai-rolloff-booked";
  * URL itself — same code-owned pattern as the signup summary markers in
  * Kaizen's residential lib/prompt.ts. */
 export const ROLLOFF_BOOKING_LINK_MARKER = "[[BOOKING_LINK]]";
+/** The model writes this where the lead's own contract signing link goes
+ * (replies only). lib/contractLink.ts makes the contract and swaps in its
+ * link before fillBookingLink runs; anywhere else it's left over and
+ * fillBookingLink refuses the draft. */
+export const ROLLOFF_CONTRACT_LINK_MARKER = "[[CONTRACT_LINK]]";
 
 /** Someone who stops at page 2 may only be grabbing their card — give them
  * this long after the lead lands before texting. */
