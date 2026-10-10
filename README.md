@@ -33,6 +33,34 @@ login; they're kept apart by GHL tags.
   CEO's per-dump prices and weight limits, the 7-day rental, and what can't
   go in. Anything else (overweight fees, extra days) goes to the office.
 
+## Contract signing page
+
+Thomas, 2026-10-10: a page where a lead reads and e-signs their roll-off
+contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
+
+- **The contract** (`lib/contract.ts`) is built by code from the brand's
+  config: size, the CEO's per-dump price and weight limit, the 7-day rental,
+  what can't go in, the service address and requested delivery date. It
+  says that signing doesn't take payment: the office calls to take the card
+  and confirm the date. Until Mountain High's own standard terms are added
+  (`rollOff.contract.standardTerms` in `lib/companies.ts`), every contract is
+  marked as a test, not binding.
+- **Download for AI** gives the exact contract as a Markdown file, with a
+  short note asking the customer's AI to explain it.
+- **Signing** takes a typed name, a drawn signature and an e-sign consent
+  box. The signature is only accepted for the exact text shown, and only
+  once. The signature record (name, image, time, IP, browser, the
+  contract's SHA-256) and a signed copy (contract plus signature plus
+  signing record) are stored together in the private Vercel Blob store,
+  and the signer can download the signed copy.
+- **After signing**, outside DRY_RUN, the GHL contact gets a note and the
+  `ai-rolloff-contract-signed` and `ai-needs-human` tags, so the office
+  takes it from there.
+- **Trying it:** `npm run contract:create -- --yards=20 --name="Test Person"
+  --phone=+15555550100 --address="12 Elm St, Greeley, CO 80631"
+  --date=2026-10-20` prints a signing link. The bot doesn't send contract
+  links yet.
+
 ## Before it goes live
 
 1. **Test mode for now (Thomas, 2026-10-10).** The workflow runs with
@@ -46,7 +74,8 @@ login; they're kept apart by GHL tags.
 ## Setup
 
 1. `npm ci`, copy `.env.example` to `.env.local` and fill it in.
-2. Deploy to Vercel (`vercel deploy --prod`) and set the same variables there.
+2. Deploy to Vercel (`vercel deploy --prod`) and set the same variables
+   there. Connect a Blob store (Storage tab) for contracts and signatures.
 3. In GHL, add a workflow: trigger **Customer Replied** (SMS), filtered to
    contacts with the `ai-rolloff-eligible` tag, action **Webhook** POST to
    `https://<vercel-domain>/api/webhook?secret=<WEBHOOK_SHARED_SECRET>` with

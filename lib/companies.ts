@@ -85,6 +85,21 @@ const COMPANIES: CompanyConfig[] = [
         every message. Never sound like a support macro: no restating their
         question back, no "I understand your frustration."
       `.trim(),
+      contract: {
+        sizes: [
+          { yards: 6, dimensions: `82" long x 72" wide x 61" tall`, pricePerDump: 275, tonLimit: 1 },
+          { yards: 8, dimensions: `82" long x 80" wide x 73" tall`, pricePerDump: 325, tonLimit: 1 },
+          { yards: 20, dimensions: `16' long x 8' wide x 4'6" tall`, pricePerDump: 400, tonLimit: 4 },
+          { yards: 30, dimensions: `18' long x 8' wide x 6' tall`, pricePerDump: 450, tonLimit: 5 },
+        ],
+        rentalDays: 7,
+        notAllowed: ["shingles", "paint", "rock", "dirt", "yard waste", "concrete", "oil", "hazardous materials"],
+        officePhone: "970-834-1144",
+        // TODO: Mountain High's own roll-off rental terms (overweight
+        // charges, extra days, damage, placement, cancellation). Until
+        // then every contract says it's a test.
+        standardTerms: null,
+      },
     },
   },
 ];

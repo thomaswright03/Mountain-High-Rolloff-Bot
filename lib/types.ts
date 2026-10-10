@@ -31,6 +31,31 @@ export interface RollOffConfig {
    * full of residential specifics (monthly prices, bin sizes, the
    * cancellation-fee incentive) that don't apply to a dumpster rental. */
   voiceGuide: string;
+  /** What goes into a roll-off contract (lib/contract.ts). Kept in step
+   * with `facts`: lib/contract.test.ts checks every price here also
+   * appears there. */
+  contract: RollOffContractConfig;
+}
+
+export interface RollOffSize {
+  yards: number;
+  /** Outside dimensions, as the website lists them. */
+  dimensions: string;
+  /** Dollars, per dump (one delivery, haul and dump). */
+  pricePerDump: number;
+  /** Included weight per dump, in tons. */
+  tonLimit: number;
+}
+
+export interface RollOffContractConfig {
+  sizes: RollOffSize[];
+  rentalDays: number;
+  notAllowed: string[];
+  officePhone: string;
+  /** The brand's own standard roll-off rental terms, word for word. Null
+   * until the brand provides them: a contract without them is marked as a
+   * test in its own text, and lib/contract.ts says so on the page. */
+  standardTerms: string | null;
 }
 
 export interface InboundMessage {

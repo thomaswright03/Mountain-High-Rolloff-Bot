@@ -11,5 +11,5 @@
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["api", "lib", "mts-sync"]
+  "include": ["api", "lib", "mts-sync", "scripts"]
 }
