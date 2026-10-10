@@ -68,6 +68,30 @@ contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
   --address="12 Elm St, Greeley, CO 80631" --date=2026-10-20` prints a
   signing link.
 
+## Dashboard
+
+Thomas, 2026-10-10: a page showing how many roll-off leads the bot has
+reached and how many roll-off contracts have been signed, laid out like the
+Kaizen lead-responder dashboard but counting roll-off leads only. It's at
+`/dashboard` (`api/dashboard.ts`, numbers from `api/dashboardData.ts`).
+
+- **Sign-in:** a password form. Set `DASHBOARD_PASSWORD` in Vercel (12+
+  characters). Signing in sets a signed, HttpOnly cookie for 30 days; nothing
+  secret ever goes in the URL, unlike Kaizen's `?secret=` dashboard.
+  Changing the password signs everyone out.
+- **What it counts,** per Denver day, each on the day it happened: Reached
+  (the bot's first text to a lead), Responded (the lead's first text back),
+  Contracts sent (a signing link made for them) and Signed. A window picker
+  shows the last 7 to 90 days.
+- **Where the numbers come from:** the same private Blob store as the
+  contracts (`lib/funnelStore.ts`). `sendRollOffTexts.ts` records a lead's
+  first text and `api/webhook.ts` their first reply, as one small file per
+  lead under `funnel/`; contracts are counted from the contract files. In
+  test mode (DRY_RUN) nothing is recorded, so Reached and Responded stay at
+  0 until the bot goes live. For the scheduled job to record first texts,
+  add the Blob store's `BLOB_READ_WRITE_TOKEN` as a GitHub Actions secret
+  too; without it texts still go out, they just aren't counted.
+
 ## Before it goes live
 
 1. **Test mode for now (Thomas, 2026-10-10).** The workflow runs with
