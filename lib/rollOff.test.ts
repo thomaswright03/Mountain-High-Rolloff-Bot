@@ -142,3 +142,7 @@ test("roll-off prompts carry the booking-link marker and the approved facts, and
     assert.ok(!prompt.includes("Jane"));
   }
 });
+
+test("the contract marker is only filled by the reply path: anywhere else the draft is refused", () => {
+  assert.throws(() => fillBookingLink("here you go [[CONTRACT_LINK]]", rollOff), UnexpectedMarkerError);
+});

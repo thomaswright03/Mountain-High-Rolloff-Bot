@@ -3,7 +3,8 @@ import { findCompany } from "./companies.js";
 import { evaluateInbound } from "./safety.js";
 import { buildHandoffCheckPrompt, formatHistory } from "./prompt.js";
 import { buildRollOffReplyPrompt } from "./rollOffPrompt.js";
-import { fillBookingLink, isOutsideServiceStates } from "./rollOff.js";
+import { fillBookingLink, isOutsideServiceStates, ROLLOFF_CONTRACT_LINK_MARKER } from "./rollOff.js";
+import { prepareContractLink } from "./contractLink.js";
 import { draftReply, detectHandoff } from "./claude.js";
 import { safeFirstName } from "./outboundSafety.js";
 import { isExcludedCity } from "./serviceArea.js";
@@ -137,15 +138,41 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   });
 
   const rawDraft = await draftReply(buildRollOffReplyPrompt(company, rollOff, isFirstReply), formatHistory(history), leadDetails);
-  const draft = fillBookingLink(rawDraft, rollOff);
+  const dryRun = process.env.DRY_RUN === "true";
+
+  let withContract = rawDraft;
+  let contractId: string | undefined;
+  if (rawDraft.includes(ROLLOFF_CONTRACT_LINK_MARKER)) {
+    const result = await prepareContractLink({ company, contactId, contact, history, now: new Date(), dryRun });
+    if ("unavailable" in result) {
+      // The reply promised a contract we can't make, so it isn't sent. The
+      // office books it with them instead.
+      if (!dryRun) {
+        await handToOffice(
+          contactId,
+          conversationId,
+          `AI didn't reply: it was about to text this roll-off lead their contract, but ${result.unavailable}. Please call them to finish booking. Lead said: "${inbound.body}"`
+        );
+      }
+      logEvent({ event: "rolloff_contract_unavailable", contactId, reason: result.unavailable, dryRun });
+      return { action: "escalated_contract_unavailable", reason: result.unavailable };
+    }
+    withContract = rawDraft.split(ROLLOFF_CONTRACT_LINK_MARKER).join(result.link);
+    contractId = result.contractId;
+    logEvent({ event: "rolloff_contract_created", contactId, contractId, dryRun });
+  }
+  const draft = fillBookingLink(withContract, rollOff);
   // Same classifier as the residential reply: a reply whose whole point is
   // "the office will call you" (or that ends the conversation) means the
   // office owns it from here.
-  const isHandoff = await detectHandoff(buildHandoffCheckPrompt(), draft);
+  // A contract text says the office will call after signing; that's the
+  // contract path working, not a hand-off (signing hands it over itself).
+  const sendsContract = withContract !== rawDraft;
+  const isHandoff = sendsContract ? false : await detectHandoff(buildHandoffCheckPrompt(), draft);
 
   logEvent({ event: "rolloff_draft", contactId, draft, isFirstReply, isHandoff, dryRun: process.env.DRY_RUN });
 
-  if (process.env.DRY_RUN === "true") {
+  if (dryRun) {
     return { action: "dry_run", draft, isHandoff };
   }
 
@@ -169,6 +196,9 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
       return { action: "blocked_dnd" };
     }
     throw smsErr;
+  }
+  if (contractId) {
+    await addNote(contactId, `AI texted this roll-off lead a contract to sign (contract ${contractId}). Once they sign, they're tagged ai-rolloff-contract-signed for the office to take payment.`);
   }
   logEvent({ event: "rolloff_sent", contactId, draft });
   return { action: "sent", isHandoff };

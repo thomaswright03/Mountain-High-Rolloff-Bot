@@ -100,3 +100,23 @@ export async function detectHandoff(systemPrompt: string, draft: string): Promis
   }
 }
 
+
+/** One structured-extraction call: the system prompt asks for a single
+ * JSON object, the user turn carries the data. Returns null if the reply
+ * isn't a JSON object, so callers fail closed. */
+export async function extractJson(systemPrompt: string, userContent: string): Promise<Record<string, unknown> | null> {
+  const response = await createMessage({
+    model: "claude-sonnet-5",
+    max_tokens: 150,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userContent }],
+  });
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") return null;
+  try {
+    const parsed = JSON.parse(textBlock.text.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}

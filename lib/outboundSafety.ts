@@ -40,11 +40,14 @@ function hostOf(url: string): string | null {
 }
 
 /** Every host our own config legitimately links to (the roll-off booking
- * page) — the only hosts an outbound SMS may ever
- * mention. Derived from lib/companies.ts so adding a brand or changing a
- * link needs no second edit here. */
+ * page, and this deployment's contract signing page at PUBLIC_BASE_URL) —
+ * the only hosts an outbound SMS may ever mention. Derived from
+ * lib/companies.ts so adding a brand or changing a link needs no second
+ * edit here. */
 function configuredLinkHosts(): string[] {
   const hosts = new Set<string>();
+  const contractPageHost = process.env.PUBLIC_BASE_URL ? hostOf(process.env.PUBLIC_BASE_URL) : null;
+  if (contractPageHost) hosts.add(contractPageHost.replace(/^www\./, ""));
   for (const company of allCompanies()) {
     for (const url of [company.rollOff.bookingUrl]) {
       const host = url ? hostOf(url) : null;
