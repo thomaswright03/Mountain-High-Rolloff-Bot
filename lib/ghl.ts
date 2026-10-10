@@ -153,6 +153,24 @@ export async function findContactsByTag(tag: string, locationId: string): Promis
   return all;
 }
 
+/** Creates the contact, or updates the one GHL already has for this
+ * phone/email. Never sends tags: GHL's upsert replaces a contact's tags
+ * rather than adding to them (confirmed live 2026-07-29 in the Kaizen
+ * repo), which would wipe opt-out and needs-human tags. Add tags with
+ * addTag afterwards. Returns the contact id. */
+export async function upsertContact(fields: Record<string, unknown>): Promise<string> {
+  const res = await fetch(`${BASE_URL}/contacts/upsert`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) throw new Error(`upsertContact failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as any;
+  const id = data?.contact?.id ?? data?.id;
+  if (!id) throw new Error("upsertContact: no contact id in GHL's response");
+  return id;
+}
+
 export async function addTag(contactId: string, tag: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/contacts/${contactId}/tags`, {
     method: "POST",

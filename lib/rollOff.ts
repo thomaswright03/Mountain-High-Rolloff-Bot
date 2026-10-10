@@ -16,7 +16,7 @@ import type { ConversationTurn, RollOffConfig } from "./types.js";
 // (lib/rollOffPrompt.ts). A contact tagged ROLLOFF_ELIGIBLE_TAG belongs to
 // this flow only — the residential cold open and follow-ups skip it.
 
-/** Set on a GHL contact by whatever imports roll-off leads (or by hand in
+/** Set on a GHL contact by mts-sync/importRollOffLeads.ts (or by hand in
  * GHL). The only way into this flow. */
 export const ROLLOFF_ELIGIBLE_TAG = "ai-rolloff-eligible";
 export const ROLLOFF_PROCESSING_TAG = "ai-rolloff-processing";
@@ -84,7 +84,8 @@ export type RollOffPlan = { send: RollOffStage } | { wait: string };
 export function planRollOffText(input: {
   tags: string[];
   coldOpenSent: boolean;
-  /** GHL's contact.dateAdded — when the lead landed in GHL. */
+  /** When this booking attempt started — see leadLandedAt in
+   * lib/rollOffIntake.ts. */
   contactDateAdded?: string;
   history: ConversationTurn[];
   now: Date;

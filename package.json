@@ -7,7 +7,8 @@
     "dev": "vercel dev",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test lib/*.test.ts api/*.test.ts mts-sync/*.test.ts",
-    "rolloff:send": "tsx mts-sync/sendRollOffTexts.ts"
+    "rolloff:send": "tsx mts-sync/sendRollOffTexts.ts",
+    "rolloff:import": "tsx mts-sync/importRollOffLeads.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0"

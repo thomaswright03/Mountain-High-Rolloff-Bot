@@ -13,9 +13,12 @@ login; they're kept apart by GHL tags.
 
 ## How it works
 
-- **Who it texts:** GHL contacts tagged `ai-rolloff-eligible`. Nothing applies
-  that tag automatically yet; it's set by hand until we know how MTS marks a
-  roll-off lead. The residential bot skips these contacts.
+- **Who it texts:** GHL contacts tagged `ai-rolloff-eligible`.
+  `mts-sync/importRollOffLeads.ts` applies the tag. Every 10 minutes it reads
+  MTS's Manage Roll-Off Leads page (`/rolloffleads/list`) and picks up Mountain
+  High leads that are New or Follow-Up, serviceable, and dated today or
+  yesterday. The old backlog is never picked up, and neither is Loveland or
+  anyone out of state. The residential bot (Kaizen) skips these contacts.
 - **Scheduled texts:** `mts-sync/sendRollOffTexts.ts`, run every 10 minutes by
   `.github/workflows/send-rolloff-texts.yml`. A fixed first text 30+ minutes
   after the lead lands, a nudge the next day, a final nudge 3 days later, then
@@ -32,11 +35,13 @@ login; they're kept apart by GHL tags.
 
 ## Before it goes live
 
-1. The workflow runs with `DRY_RUN: "true"`: it only logs what it would send
-   and writes nothing to GHL.
+1. **Test mode for now (Thomas, 2026-10-10).** The workflow runs with
+   `DRY_RUN: "true"`: it only logs what it would pick up and send, and writes
+   nothing to GHL.
 2. `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `mts-sync/sendRollOffTexts.ts` stays
    `false` until Mountain High's CEO OKs texting these leads.
-3. Something has to tag roll-off leads `ai-rolloff-eligible` in GHL.
+3. The first test-mode runs should be checked against the real MTS page:
+   the lead pick-up was built from a screenshot, not the page's HTML.
 
 ## Setup
 
@@ -48,7 +53,7 @@ login; they're kept apart by GHL tags.
    contact ID, conversation ID, location ID, phone and message in the body.
 4. Add the GitHub Actions secrets the workflow reads: `ANTHROPIC_API_KEY`,
    `MTS_EMAIL`, `MTS_PASSWORD`, `GHL_API_TOKEN`, `GHL_LOCATION_ID`,
-   `KILLSWITCH_URL`.
+   `GHL_COMPANY_FIELD_KEY`, `KILLSWITCH_URL`.
 
 ## Checks
 

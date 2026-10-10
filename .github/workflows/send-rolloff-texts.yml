@@ -1,15 +1,17 @@
 name: Send roll-off texts
 
-# Roll-off dumpster abandoned-cart texts (Thomas, 2026-10-10) — runs
-# mts-sync/sendRollOffTexts.ts, which sends whichever text is due for each
+# Roll-off dumpster abandoned-cart texts (Thomas, 2026-10-10). First picks
+# up new leads from MTS's roll-off lead list (mts-sync/importRollOffLeads.ts),
+# then runs mts-sync/sendRollOffTexts.ts, which sends whichever text is due for each
 # contact tagged ai-rolloff-eligible: the first text ~30 min after they
 # leave the booking form, a next-day nudge, and one final nudge three days
 # later. Needs Playwright because it
 # checks MTS's real Contracts data before every real send, so nobody who
 # already finished booking gets texted to finish.
 #
-# DRY_RUN stays "true" until Mountain High is ready to go live: runs only
-# log what they'd send, and write nothing to GHL. Going live also needs
+# TEST MODE (Thomas, 2026-10-10: don't reach out to any real leads yet):
+# DRY_RUN stays "true" on both steps, so runs only log what they'd pick up
+# and send, and write nothing to GHL. Going live also needs
 # ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in sendRollOffTexts.ts.
 on:
   schedule:
@@ -48,6 +50,18 @@ jobs:
       - name: Install Playwright's OS dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
+
+      # Reads MTS's roll-off lead list and tags new leads in GHL.
+      - name: Pick up new roll-off leads
+        run: npm run rolloff:import
+        env:
+          MTS_EMAIL: ${{ secrets.MTS_EMAIL }}
+          MTS_PASSWORD: ${{ secrets.MTS_PASSWORD }}
+          GHL_API_TOKEN: ${{ secrets.GHL_API_TOKEN }}
+          GHL_LOCATION_ID: ${{ secrets.GHL_LOCATION_ID }}
+          GHL_COMPANY_FIELD_KEY: ${{ secrets.GHL_COMPANY_FIELD_KEY }}
+          KILLSWITCH_URL: ${{ secrets.KILLSWITCH_URL }}
+          DRY_RUN: "true"
 
       - name: Send roll-off texts
         run: npm run rolloff:send

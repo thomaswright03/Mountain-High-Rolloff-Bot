@@ -40,6 +40,7 @@ import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
 import { loginToMts } from "./mtsLogin.js";
 import { checkMtsContractList } from "./mtsStatusCheck.js";
+import { leadLandedAt } from "../lib/rollOffIntake.js";
 
 const TARGET_COMPANY = "Mountain High Disposal";
 const NEEDS_HUMAN_TAG = "ai-needs-human";
@@ -161,7 +162,10 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     await addTag(contactId, ROLLOFF_COLD_OPEN_SENT_TAG);
   }
 
-  const plan = planRollOffText({ tags, coldOpenSent, contactDateAdded: contact.dateAdded, history, now });
+  // When this booking attempt started: the pick-up note's time
+  // (importRollOffLeads.ts), since an existing contact's dateAdded is old.
+  const landedAt = leadLandedAt(contact.dateAdded, notes);
+  const plan = planRollOffText({ tags, coldOpenSent, contactDateAdded: landedAt, history, now });
   if ("wait" in plan) {
     logEvent({ event: "rolloff_text_not_due", contactId, reason: plan.wait });
     return "skipped";
@@ -214,7 +218,7 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     // They may have finished online (what we asked them to do) or booked
     // with the office since starting.
     if (opts.findContracts) {
-      const since = bookingCheckSince(contact.dateAdded, now, company.timezone);
+      const since = bookingCheckSince(landedAt, now, company.timezone);
       const recent = contractsSince(await opts.findContracts(contact.phone), since);
       if (recent.length > 0) {
         await addTag(contactId, ROLLOFF_BOOKED_TAG);

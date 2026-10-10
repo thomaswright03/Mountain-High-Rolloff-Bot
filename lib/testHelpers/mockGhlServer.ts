@@ -9,6 +9,8 @@ export interface MockGhlServer {
   notes: Array<{ contactId: string; body: string }>;
   starredConversations: string[];
   readConversations: string[];
+  /** Every /contacts/upsert body, in order. */
+  upserts: Array<Record<string, any>>;
   close: () => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
   const notes: Array<{ contactId: string; body: string }> = [];
   const starredConversations: string[] = [];
   const readConversations: string[] = [];
+  const upserts: Array<Record<string, any>> = [];
 
   const server = http.createServer((req, res) => {
     let body = "";
@@ -124,6 +127,23 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
         return;
       }
 
+      // Matches an existing fixture contact by phone, like GHL's own
+      // duplicate check; otherwise creates one.
+      if (method === "POST" && url === "/contacts/upsert") {
+        const parsed = JSON.parse(body);
+        upserts.push(parsed);
+        let id = Object.keys(fixtures.contacts).find((k) => parsed.phone && fixtures.contacts[k]!.phone === parsed.phone);
+        if (!id) {
+          id = `new_${upserts.length}`;
+          fixtures.contacts[id] = { tags: [] };
+        }
+        const { locationId: _loc, ...fields } = parsed;
+        Object.assign(fixtures.contacts[id]!, fields);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ new: id.startsWith("new_"), contact: { id, ...fixtures.contacts[id] } }));
+        return;
+      }
+
       if (method === "POST" && url === "/contacts/search") {
         const parsed = JSON.parse(body);
         const tagFilter = parsed.filters?.find((f: any) => f.field === "tags")?.value;
@@ -151,6 +171,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
         notes,
         starredConversations,
         readConversations,
+        upserts,
         close: () => new Promise((r) => server.close(() => r())),
       });
     });
