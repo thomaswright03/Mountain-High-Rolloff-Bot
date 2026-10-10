@@ -1,0 +1,26 @@
+{
+  "name": "mountain-high-rolloff-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test lib/*.test.ts api/*.test.ts mts-sync/*.test.ts",
+    "rolloff:send": "tsx mts-sync/sendRollOffTexts.ts",
+    "rolloff:import": "tsx mts-sync/importRollOffLeads.ts",
+    "contract:create": "tsx scripts/createContract.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@vercel/blob": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vercel/node": "^3.2.0",
+    "dotenv": "^16.4.5",
+    "playwright": "~1.62.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
