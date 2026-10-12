@@ -36,13 +36,44 @@ const HEADER_KEYS: Record<string, keyof MtsRollOffRow> = {
   status: "status",
 };
 
+type RawTable = { headers: string[]; rows: Array<{ cells: string[]; hrefs: string[] }> } | null;
+
+/** The leads table's header and row text. Retried if the page is still
+ * reloading when it's read. */
+async function readTable(page: Page, attempts = 3): Promise<RawTable> {
+  try {
+    // No named helpers inside evaluate: tsx (esbuild keepNames) wraps them
+    // in a __name() call that doesn't exist in the browser.
+    return await page.evaluate(() => {
+      const table = Array.from(document.querySelectorAll("table")).find((t) => /phone\s*number/i.test(t.innerText));
+      if (!table) return null;
+      const headerCells = Array.from(table.querySelectorAll("thead th, tr:first-child th"));
+      const headers = headerCells.map((th) => (th.textContent ?? "").replace(/\s+/g, " ").trim().toLowerCase());
+      const bodyRows = Array.from(table.querySelectorAll("tbody tr")).filter((tr) => tr.querySelectorAll("td").length >= headers.length - 1);
+      return {
+        headers,
+        rows: bodyRows.map((tr) => ({
+          cells: Array.from(tr.querySelectorAll("td")).map((td) => (td.textContent ?? "").replace(/\s+/g, " ").trim()),
+          hrefs: Array.from(tr.querySelectorAll("a")).map((a) => a.getAttribute("href") ?? ""),
+        })),
+      };
+    });
+  } catch (err: any) {
+    if (attempts <= 1 || !/Execution context was destroyed|navigation/i.test(err.message)) throw err;
+    await page.waitForLoadState("networkidle");
+    return readTable(page, attempts - 1);
+  }
+}
+
 /** Reads every row of the leads table on the current page, by header. */
 export async function readRollOffLeadRows(page: Page): Promise<MtsRollOffRow[]> {
   await page.goto(LIST_URL, { waitUntil: "networkidle" });
 
   // Show as many rows per page as the page offers, so a busy day isn't cut
   // off at 25. Best-effort: if there's no such dropdown, the first page is
-  // still read.
+  // still read. On the real page, changing it reloads the page (first test
+  // run, 2026-10-10), so the reload is waited for before the table is read.
+  const reloaded = page.waitForEvent("framenavigated", { predicate: (f) => f === page.mainFrame(), timeout: 5_000 }).catch(() => null);
   const grew = await page.evaluate(() => {
     for (const select of Array.from(document.querySelectorAll("select"))) {
       const sizes = Array.from(select.options).map((o) => Number(o.value)).filter((n) => [25, 50, 100].includes(n));
@@ -55,23 +86,12 @@ export async function readRollOffLeadRows(page: Page): Promise<MtsRollOffRow[]> 
     }
     return false;
   });
-  if (grew) await page.waitForLoadState("networkidle");
+  if (grew) {
+    await reloaded;
+    await page.waitForLoadState("networkidle");
+  }
 
-  const raw = await page.evaluate(() => {
-    const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim();
-    const table = Array.from(document.querySelectorAll("table")).find((t) => /phone\s*number/i.test(t.innerText));
-    if (!table) return null;
-    const headerCells = Array.from(table.querySelectorAll("thead th, tr:first-child th"));
-    const headers = headerCells.map((th) => clean(th.textContent).toLowerCase());
-    const bodyRows = Array.from(table.querySelectorAll("tbody tr")).filter((tr) => tr.querySelectorAll("td").length >= headers.length - 1);
-    return {
-      headers,
-      rows: bodyRows.map((tr) => ({
-        cells: Array.from(tr.querySelectorAll("td")).map((td) => clean(td.textContent)),
-        hrefs: Array.from(tr.querySelectorAll("a")).map((a) => a.getAttribute("href") ?? ""),
-      })),
-    };
-  });
+  const raw = await readTable(page);
   if (!raw) throw new Error("MTS roll-off leads page: no table with a Phone Number column");
 
   const index: Partial<Record<keyof MtsRollOffRow, number>> = {};

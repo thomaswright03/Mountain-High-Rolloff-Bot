@@ -51,9 +51,15 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      # Reads MTS's roll-off lead list and tags new leads in GHL.
+      # Reads MTS's roll-off lead list and tags new leads in GHL. Skipped,
+      # not failed, until the MTS login secrets are added.
       - name: Pick up new roll-off leads
-        run: npm run rolloff:import
+        run: |
+          if [ -z "$MTS_EMAIL" ] || [ -z "$MTS_PASSWORD" ]; then
+            echo "::notice::MTS_EMAIL / MTS_PASSWORD secrets not set yet, skipping lead pick-up."
+            exit 0
+          fi
+          npm run rolloff:import
         env:
           MTS_EMAIL: ${{ secrets.MTS_EMAIL }}
           MTS_PASSWORD: ${{ secrets.MTS_PASSWORD }}
@@ -63,8 +69,16 @@ jobs:
           KILLSWITCH_URL: ${{ secrets.KILLSWITCH_URL }}
           DRY_RUN: "true"
 
+      # Every contact it checks comes from GHL. GHL is on hold (Thomas,
+      # 2026-10-10: they may set up a new GHL account for this), so this
+      # step is skipped, not failed, until the GHL secrets are added.
       - name: Send roll-off texts
-        run: npm run rolloff:send
+        run: |
+          if [ -z "$GHL_API_TOKEN" ] || [ -z "$GHL_LOCATION_ID" ]; then
+            echo "::notice::GHL_API_TOKEN / GHL_LOCATION_ID secrets not set yet, skipping texts."
+            exit 0
+          fi
+          npm run rolloff:send
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MTS_EMAIL: ${{ secrets.MTS_EMAIL }}
