@@ -10,7 +10,7 @@ import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStor
 // key.
 
 const BOOKING_URL = findCompany("Mountain High Disposal")!.rollOff!.bookingUrl;
-const COLD_OPEN = "Hey Sam, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. do you still need one?";
+const COLD_OPEN = "Hey Sam, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. would you like a 6 yard, 8 yard, 20 yard, or 30 yard dumpster?";
 
 let ghl: MockGhlServer;
 let claude: MockClaudeServer;

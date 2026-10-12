@@ -4,9 +4,9 @@ import { evaluateInbound } from "./safety.js";
 import { buildHandoffCheckPrompt, formatHistory } from "./prompt.js";
 import { buildRollOffReplyPrompt } from "./rollOffPrompt.js";
 import { fillBookingLink, isOutsideServiceStates, ROLLOFF_CONTRACT_LINK_MARKER } from "./rollOff.js";
-import { prepareContractLink } from "./contractLink.js";
 import { draftReply, detectHandoff } from "./claude.js";
 import { safeFirstName } from "./outboundSafety.js";
+import { prepareContractLink, safeEmail } from "./contractLink.js";
 import { isExcludedCity } from "./serviceArea.js";
 import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
 import { logEvent } from "./logging.js";
@@ -132,8 +132,12 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
 
   const isFirstReply = !history.some((t) => t.direction === "outbound");
   const hasFullAddress = Boolean(contact.address1 && contact.city && contact.state && contact.postalCode);
+  const firstName = safeFirstName(contact.firstName);
+  const lastName = safeFirstName(contact.lastName);
   const leadDetails = JSON.stringify({
-    first_name: safeFirstName(contact.firstName) ?? null,
+    first_name: firstName ?? null,
+    full_name_on_file: firstName && lastName ? `${firstName} ${lastName}` : null,
+    email_on_file: safeEmail(contact.email) ?? null,
     service_address: hasFullAddress ? `${contact.address1}, ${contact.city}, ${contact.state} ${contact.postalCode}` : null,
   });
 
