@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/contract/:id", "destination": "/api/contract?id=:id" }]
+  "rewrites": [
+    { "source": "/contract/:id", "destination": "/api/contract?id=:id" },
+    { "source": "/dashboard", "destination": "/api/dashboard" }
+  ]
 }

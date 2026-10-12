@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
 import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers/mockClaudeServer.js";
 import { findCompany } from "../lib/companies.js";
+import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
 
 // Replies from roll-off dumpster leads (lib/rollOffReply.ts), through the
 // real webhook handler. Claude and GHL are mocked, so this runs with no API
@@ -14,6 +15,7 @@ const COLD_OPEN = "Hey Sam, this is Max with the AI team at Mountain High Dispos
 let ghl: MockGhlServer;
 let claude: MockClaudeServer;
 let handler: (req: any, res: any) => Promise<void>;
+let funnel: ReturnType<typeof memoryFunnelBackend>;
 const histories: Record<string, Array<{ direction: "inbound" | "outbound"; body: string; dateAdded: string; userId?: string }>> = {};
 
 const contact = (id: string, extra: Record<string, any> = {}) => ({
@@ -65,11 +67,14 @@ before(async () => {
 });
 
 after(async () => {
+  setFunnelBackendForTests(null);
   await ghl.close();
   await claude.close();
 });
 
 beforeEach(() => {
+  funnel = memoryFunnelBackend();
+  setFunnelBackendForTests(funnel);
   ghl.sentMessages.length = 0;
   ghl.taggedContacts.length = 0;
   ghl.notes.length = 0;
@@ -110,6 +115,30 @@ test("a roll-off lead's reply gets the roll-off prompt, and the booking link is 
   assert.ok(!request!.system.includes("12 Elm St"), "the address on file is data in the user turn, never the system prompt");
   assert.match(request!.messages[0]!.content, /12 Elm St, Greeley, CO 80631/);
   assert.equal(tagsOf("sam").length, 0);
+});
+
+test("a roll-off lead's first reply counts as responded on the dashboard, once", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"]]);
+  await send("sam", "conv_sam", "yes");
+  const first = funnel.files.get("funnel/responded/sam.json");
+  assert.ok(first, "counted");
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"], ["outbound", "great"], ["inbound", "a 20 yard"]]);
+  await send("sam", "conv_sam", "a 20 yard");
+  assert.equal(funnel.files.get("funnel/responded/sam.json"), first, "a second text doesn't move the day");
+  assert.equal(funnel.files.size, 1);
+});
+
+test("a reply in test mode, or from someone who isn't a roll-off lead, isn't counted", async () => {
+  setHistory("conv_res", [["outbound", "Hey Sam, this is Max..."], ["inbound", "hi"]]);
+  await send("residential", "conv_res", "hi");
+  process.env.DRY_RUN = "true";
+  try {
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"]]);
+    await send("sam", "conv_sam", "yes");
+  } finally {
+    process.env.DRY_RUN = "false";
+  }
+  assert.equal(funnel.files.size, 0);
 });
 
 test("a contact tagged for both flows is handled as roll-off", async () => {

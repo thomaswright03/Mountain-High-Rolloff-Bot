@@ -54,31 +54,32 @@ export function memoryBlobBackend(): BlobBackend & { files: Map<string, string> 
   };
 }
 
-function folder(env: NodeJS.ProcessEnv = process.env): string {
+/** Also read by the dashboard (lib/funnelStore.ts) to count contracts. */
+export function contractsFolder(env: NodeJS.ProcessEnv = process.env): string {
   return env.VERCEL_ENV === "production" ? "contracts" : "test-contracts";
 }
 
 export async function saveContract(contract: Contract): Promise<void> {
-  await backend.put(`${folder()}/${contract.id}/contract.json`, JSON.stringify(contract, null, 2), "application/json");
+  await backend.put(`${contractsFolder()}/${contract.id}/contract.json`, JSON.stringify(contract, null, 2), "application/json");
 }
 
 export async function loadContract(id: string): Promise<Contract | null> {
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(id)) return null;
-  const raw = await backend.get(`${folder()}/${id}/contract.json`);
+  const raw = await backend.get(`${contractsFolder()}/${id}/contract.json`);
   return raw ? (JSON.parse(raw) as Contract) : null;
 }
 
 export async function loadSignature(id: string): Promise<SignatureRecord | null> {
-  const raw = await backend.get(`${folder()}/${id}/signed.json`);
+  const raw = await backend.get(`${contractsFolder()}/${id}/signed.json`);
   return raw ? (JSON.parse(raw) as SignatureRecord) : null;
 }
 
 export async function loadSignedDocument(id: string): Promise<string | null> {
-  return backend.get(`${folder()}/${id}/signed.html`);
+  return backend.get(`${contractsFolder()}/${id}/signed.html`);
 }
 
 /** The record goes first: it's the write that can only happen once. */
 export async function saveSignature(record: SignatureRecord, signedHtml: string): Promise<void> {
-  await backend.put(`${folder()}/${record.contractId}/signed.json`, JSON.stringify(record, null, 2), "application/json");
-  await backend.put(`${folder()}/${record.contractId}/signed.html`, signedHtml, "text/html; charset=utf-8");
+  await backend.put(`${contractsFolder()}/${record.contractId}/signed.json`, JSON.stringify(record, null, 2), "application/json");
+  await backend.put(`${contractsFolder()}/${record.contractId}/signed.html`, signedHtml, "text/html; charset=utf-8");
 }

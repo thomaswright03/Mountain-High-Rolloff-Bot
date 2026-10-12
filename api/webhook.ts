@@ -4,6 +4,7 @@ import { logEvent } from "../lib/logging.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { hasRollOffTag } from "../lib/rollOff.js";
 import { handleRollOffReply } from "../lib/rollOffReply.js";
+import { recordFunnelEvent } from "../lib/funnelStore.js";
 import type { InboundMessage } from "../lib/types.js";
 
 /** Same payload shapes the Kaizen lead-responder webhook accepts, so one
@@ -55,7 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({ ok: true, action: "skipped_not_rolloff" });
       return;
     }
-    const result = await handleRollOffReply(inbound, contact);
+    // For the dashboard: their first text in counts as responded. Never
+    // throws, so it can't hold up or break the reply.
+    const [result] = await Promise.all([handleRollOffReply(inbound, contact), recordFunnelEvent("responded", inbound.contactId)]);
     res.status(200).json({ ok: true, flow: "rolloff", ...result });
   } catch (err: any) {
     logEvent({ event: "error", contactId: inbound.contactId, error: err.message });

@@ -5,6 +5,7 @@ import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers
 import { AI_ROLLOFF_COLD_OPEN_NOTE_MARKER } from "../lib/prompt.js";
 import { findCompany } from "../lib/companies.js";
 import type { MtsContractRow } from "../lib/rollOff.js";
+import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
 
 // Claude and GHL are both mocked, so this runs with no API key, no GHL
 // token and no MTS login. MTS's contract list is injected per test.
@@ -29,6 +30,7 @@ let ghl: MockGhlServer;
 let claude: MockClaudeServer;
 let processEntry: (entry: { contactId: string }, opts?: any) => Promise<"sent" | "skipped" | "retry">;
 let addNote: (contactId: string, body: string) => Promise<void>;
+let funnel: ReturnType<typeof memoryFunnelBackend>;
 
 before(async () => {
   ghl = await startMockGhlServer({
@@ -95,12 +97,15 @@ before(async () => {
 });
 
 after(async () => {
+  setFunnelBackendForTests(null);
   await ghl.close();
   await claude.close();
 });
 
 beforeEach(() => {
   process.env.DRY_RUN = "false";
+  funnel = memoryFunnelBackend();
+  setFunnelBackendForTests(funnel);
   ghl.sentMessages.length = 0;
   ghl.taggedContacts.length = 0;
   ghl.removedTags.length = 0;
@@ -125,6 +130,23 @@ test("a lead who left the form 30+ minutes ago gets the fixed cold open, tagged 
   assert.ok(tagsOf("fresh").includes("ai-rolloff-processing"), "claims the contact before sending");
   assert.ok(ghl.removedTags.some((t) => t.contactId === "fresh" && t.tag === "ai-rolloff-processing"), "and always releases it");
   assert.equal(claude.requests.length, 0, "the cold open is code-owned text, no model call");
+});
+
+test("the first text that goes out counts the lead as reached on the dashboard, once", async () => {
+  assert.equal(await processEntry({ contactId: "fresh" }, live()), "sent");
+  assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "sent");
+  assert.deepEqual([...funnel.files.keys()].sort(), ["funnel/reached/fresh.json", "funnel/reached/fu1_due.json"]);
+  // A later text to someone already counted changes nothing.
+  const first = funnel.files.get("funnel/reached/fu1_due.json")!;
+  assert.equal(await processEntry({ contactId: "fu2_due" }, live()), "sent");
+  assert.equal(funnel.files.get("funnel/reached/fu1_due.json"), first);
+});
+
+test("nothing is counted as reached when nothing went out", async () => {
+  assert.equal(await processEntry({ contactId: "too_new" }, live()), "skipped");
+  assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW }), "retry");
+  assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts: async () => [{ custNumber: "42", name: "Jane Doe", medium: "Website", status: "Active", saleDate: "10/10/2026" }] })), "skipped");
+  assert.equal(funnel.files.size, 0);
 });
 
 test("a name that isn't a name never reaches the text", async () => {
@@ -156,6 +178,7 @@ test("DRY_RUN never sends and never writes to GHL", async () => {
   assert.equal(ghl.sentMessages.length, 0);
   assert.equal(ghl.taggedContacts.length, 0);
   assert.equal(ghl.notes.length, 0);
+  assert.equal(funnel.files.size, 0, "and counts nothing on the dashboard");
 });
 
 test("DND, no phone, Loveland, out-of-state, and already flagged/opted-out/booked/finished leads are never texted", async () => {

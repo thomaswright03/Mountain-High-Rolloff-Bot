@@ -41,6 +41,7 @@ import { logEvent } from "../lib/logging.js";
 import { loginToMts } from "./mtsLogin.js";
 import { checkMtsContractList } from "./mtsStatusCheck.js";
 import { leadLandedAt } from "../lib/rollOffIntake.js";
+import { recordFunnelEvent } from "../lib/funnelStore.js";
 
 const TARGET_COMPANY = "Mountain High Disposal";
 const NEEDS_HUMAN_TAG = "ai-needs-human";
@@ -234,6 +235,8 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     }
 
     await sendSms(contactId, draft);
+    // For the dashboard: the first text that goes out counts as reached.
+    await recordFunnelEvent("reached", contactId);
     await addTag(contactId, STAGE_TAG[stage]);
     await addNote(
       contactId,
