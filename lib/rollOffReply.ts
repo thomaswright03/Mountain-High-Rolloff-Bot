@@ -162,6 +162,9 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
       return { action: "escalated_contract_unavailable", reason: result.unavailable };
     }
     withContract = rawDraft.split(ROLLOFF_CONTRACT_LINK_MARKER).join(result.link);
+    // Thomas, 2026-10-15: the contract text must state the price. If the
+    // draft left out this size's price, add the code-owned line.
+    if (!withContract.includes(`$${result.price}`)) withContract = `${withContract} ${result.priceLine}`;
     contractId = result.contractId;
     logEvent({ event: "rolloff_contract_created", contactId, contractId, dryRun });
   }

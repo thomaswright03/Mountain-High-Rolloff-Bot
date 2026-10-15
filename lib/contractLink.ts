@@ -27,7 +27,7 @@ import type { CompanyConfig, ConversationTurn } from "./types.js";
  * for the office to set. */
 const MAX_DAYS_AHEAD = 90;
 
-export type ContractLinkResult = { link: string; contractId?: string } | { unavailable: string };
+export type ContractLinkResult = { link: string; contractId?: string; priceLine: string; price: number } | { unavailable: string };
 
 function dayInZone(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -146,11 +146,18 @@ export async function prepareContractLink(input: {
 
   // Test mode: nothing is stored, and the draft only shows where the link
   // would go.
+  // Code-owned, so the price in the text always matches the contract.
+  const size = company.rollOff.contract.sizes.find((s) => s.yards === yards)!;
+  const priced = {
+    price: size.pricePerDump,
+    priceLine: `${yards} yard: $${size.pricePerDump} per dump, up to ${size.tonLimit} ton${size.tonLimit === 1 ? "" : "s"}, ${company.rollOff.contract.rentalDays}-day rental.`,
+  };
+
   if (input.dryRun) {
     const c = contract.customer;
-    return { link: `<contract link: ${yards} yard, ${requestedDeliveryDate}, ${c.name}, ${c.serviceAddress}, ${c.email ?? "no email"}>` };
+    return { link: `<contract link: ${yards} yard, ${requestedDeliveryDate}, ${c.name}, ${c.serviceAddress}, ${c.email ?? "no email"}>`, ...priced };
   }
 
   await saveContract(contract);
-  return { link: contractLink(baseUrl!, contract.id, secret!), contractId: contract.id };
+  return { link: contractLink(baseUrl!, contract.id, secret!), contractId: contract.id, ...priced };
 }

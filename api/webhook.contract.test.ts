@@ -119,6 +119,15 @@ test("once they pick a size and day, the reply links their own contract, built f
   assert.ok(!tagsOf("sam").includes("ai-needs-human"), "sending a contract isn't a hand-off");
 });
 
+test("a contract text that already states the right price isn't given a second one", async () => {
+  process.env.DRY_RUN = "true";
+  setHistory("conv_sam", [["outbound", "what name should go on it?"], ["inbound", "Sam Lee is right"]]);
+  claude.draft = "sweet, here's your contract for the 20 yard ($400 per dump, up to 4 tons) [[CONTRACT_LINK]]";
+  const state = await send("sam", "conv_sam", "Sam Lee is right");
+  assert.equal(state.body.action, "dry_run");
+  assert.ok(!state.body.draft.includes("per dump, up to 4 tons, 7-day"), state.body.draft);
+});
+
 test("no clear delivery day (past, garbled or missing): no contract, the office takes it", async () => {
   setHistory("conv_sam", [["outbound", "do you still need one?"], ["inbound", "20 yard please"]]);
   for (const bad of [inDays(-3), "2026-02-30", "tomorrow", null]) {
@@ -211,6 +220,7 @@ test("test mode (DRY_RUN): the draft shows where the link would go, and nothing 
   const state = await send("sam", "conv_sam", "20 yard");
   assert.equal(state.body.action, "dry_run");
   assert.ok(state.body.draft.includes(`<contract link: 20 yard, ${inDays(5)}, Sam Lee, 12 Elm St, Greeley, CO 80631, no email>`), state.body.draft);
+  assert.ok(state.body.draft.includes("$400 per dump, up to 4 tons, 7-day rental."), "the price is added when the draft leaves it out");
   assert.equal(savedContracts().length, 0);
   assert.equal(ghl.sentMessages.length, 0);
   assert.equal(ghl.notes.length, 0);

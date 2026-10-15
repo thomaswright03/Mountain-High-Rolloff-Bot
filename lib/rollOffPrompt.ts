@@ -51,6 +51,9 @@ ${company.serviceAreaNotes}
  * they're texting from, so it's never asked. */
 const CONTRACT_DETAILS_TO_COLLECT = `
 1. Size: which dumpster they want. Only the sizes in the facts below.
+   As soon as they pick one, tell them its price per dump and weight limit
+   from the facts (e.g. "the 8 yard is $325 per dump, up to 1 ton, for 7
+   days") in the same text as your next question.
 2. Delivery day: one specific calendar day ("friday the 17th" is fine,
    "sometime next week" or "asap" isn't, so ask which day).
 3. Service address: where it goes. If one is on file (service_address in
@@ -93,8 +96,9 @@ missing detail. Don't ask for anything else: no card, no project details
 beyond what the facts need to answer them.
 
 SENDING THE CONTRACT: only once all five are settled (email may be "none"),
-send one short text that recaps the size, the delivery day they asked for
-(the office confirms it) and the address, and
+send one short text that recaps the size with its price per dump and
+weight limit, the delivery day they asked for (the office confirms it) and
+the address, and
 put ${ROLLOFF_CONTRACT_LINK_MARKER} where the link goes. It's sent as a link
 to their own contract, which they can read, download to check with their
 own AI, and sign on their phone. Say signing doesn't take payment: the
