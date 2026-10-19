@@ -15,6 +15,7 @@ import { loadContract, loadSignature, loadSignedDocument, saveSignature } from "
 import { findCompany } from "../lib/companies.js";
 import { addNote, addTag } from "../lib/ghl.js";
 import { logEvent } from "../lib/logging.js";
+import { submitSignedContract } from "../lib/mtsSubmission.js";
 
 export const CONTRACT_SIGNED_TAG = "ai-rolloff-contract-signed";
 const NEEDS_HUMAN_TAG = "ai-needs-human";
@@ -30,7 +31,8 @@ const NEEDS_HUMAN_TAG = "ai-needs-human";
  * a contract can't be read or signed by guessing its number. Signing
  * stores the signature and the signed copy together (lib/contractStore.ts)
  * and, outside DRY_RUN, notes it on the GHL contact and hands it to the
- * office to take payment and confirm the date.
+ * office to take payment and confirm the date. Then the booking goes to MTS
+ * (lib/mtsSubmission.ts), which only logs it while in test mode.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -140,6 +142,7 @@ async function handleSign(req: VercelRequest, res: VercelResponse, contract: Con
   logEvent({ event: "contract_signed", contractId: contract.id, isTest: contract.isTest });
 
   await notifyOffice(contract, record);
+  await submitSignedContract(contract, record);
   res.status(200).json({ ok: true });
 }
 

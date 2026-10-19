@@ -123,7 +123,7 @@ const sentTo = (contactId: string) => ghl.sentMessages.filter((m) => m.contactId
 test("a lead who left the form 30+ minutes ago gets the fixed cold open, tagged and recorded", async () => {
   assert.equal(await processEntry({ contactId: "fresh" }, live()), "sent");
   assert.deepEqual(sentTo("fresh"), [
-    "Hey Jane, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. do you still need one?",
+    "Hey Jane, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. would you like a 6 yard, 8 yard, 20 yard, or 30 yard dumpster?",
   ]);
   assert.ok(tagsOf("fresh").includes("ai-rolloff-outreach-sent"));
   assert.ok(ghl.notes.some((n) => n.contactId === "fresh" && n.body.startsWith(AI_ROLLOFF_COLD_OPEN_NOTE_MARKER)));
