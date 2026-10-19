@@ -1,6 +1,17 @@
 {
   "rewrites": [
-    { "source": "/contract/:id", "destination": "/api/contract?id=:id" },
-    { "source": "/dashboard", "destination": "/api/dashboard" }
-  ]
+    {
+      "source": "/contract/:id",
+      "destination": "/api/contract?id=:id"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/api/dashboard"
+    }
+  ],
+  "functions": {
+    "api/*.ts": {
+      "includeFiles": "voice/**"
+    }
+  }
 }

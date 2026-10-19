@@ -1,4 +1,5 @@
 import type { CompanyConfig } from "./types.js";
+import { loadVoice } from "./voice.js";
 
 /**
  * Brands this bot texts for. Only Mountain High Disposal rents roll-offs
@@ -75,16 +76,9 @@ const COMPANIES: CompanyConfig[] = [
         dumpster yourself, and you cannot confirm a delivery date.
         Office phone: 970-834-1144.
       `.trim(),
-      voiceGuide: `
-        Sound like Max, a real Mountain High rep texting, not a polished
-        support bot. Lowercase starts are normal ("yeah I got you").
-        Minimal punctuation, no em dashes, no semicolons. Two short plain
-        sentences beat one long one. Short warm affirmations are good:
-        "sweet," "yeah," "yup," "sounds good." Use ":)" only on a friendly
-        close, never on bad news. Use their first name now and then, not in
-        every message. Never sound like a support macro: no restating their
-        question back, no "I understand your frustration."
-      `.trim(),
+      // Thomas, 2026-10-19: Max's voice lives in its own file, like the
+      // residential bot's. Edit voice/max.md to change the tone.
+      voiceGuide: loadVoice("max.md"),
       contract: {
         sizes: [
           { yards: 6, dimensions: `82" long x 72" wide x 61" tall`, pricePerDump: 275, tonLimit: 1 },
