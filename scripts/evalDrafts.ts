@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { findCompany } from "../lib/companies.js";
 import { buildRollOffReplyPrompt } from "../lib/rollOffPrompt.js";
 import { draftReply, CLAUDE_MODEL } from "../lib/claude.js";
@@ -37,6 +37,7 @@ async function main(): Promise<void> {
     ...rows,
     "",
   ].join("\n");
+  mkdirSync(new URL("../docs/", import.meta.url), { recursive: true });
   writeFileSync(new URL("../docs/eval-results.md", import.meta.url), out);
   console.log(`Wrote docs/eval-results.md (${failed} failed)`);
   if (failed) process.exitCode = 1;
