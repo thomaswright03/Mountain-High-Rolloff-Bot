@@ -34,7 +34,7 @@ these facts, say the office can go over it with them on a quick call.
 ${rollOff.facts}
 
 Service area:
-${company.serviceAreaNotes}
+${rollOff.serviceArea}
 ---`.trim();
 }
 

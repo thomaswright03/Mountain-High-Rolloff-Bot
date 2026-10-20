@@ -1,5 +1,6 @@
 import { put, get } from "@vercel/blob";
 import type { Contract, SignatureRecord } from "./contract.js";
+import { blobFolder } from "./blobNamespace.js";
 
 // Contracts and signatures live in the Vercel project's private Blob store
 // (connecting a store in Vercel's Storage tab sets BLOB_READ_WRITE_TOKEN),
@@ -56,7 +57,7 @@ export function memoryBlobBackend(): BlobBackend & { files: Map<string, string> 
 
 /** Also read by the dashboard (lib/funnelStore.ts) to count contracts. */
 export function contractsFolder(env: NodeJS.ProcessEnv = process.env): string {
-  return env.VERCEL_ENV === "production" ? "contracts" : "test-contracts";
+  return blobFolder("contracts", env);
 }
 
 export async function saveContract(contract: Contract): Promise<void> {

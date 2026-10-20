@@ -23,6 +23,9 @@ export interface RollOffConfig {
    * roll-off bot ever sends, and only by code: the model writes
    * ROLLOFF_BOOKING_LINK_MARKER and lib/rollOff.ts swaps this URL in. */
   bookingUrl: string;
+  /** Where roll-offs are delivered, in plain sentences for the model: the
+   * city list, states and any excluded city. No signup or developer notes. */
+  serviceArea: string;
   /** Plain-sentence roll-off facts the model may state, same rule as
    * pricingAndServiceFacts: whatever isn't in here, the model must not
    * invent. */

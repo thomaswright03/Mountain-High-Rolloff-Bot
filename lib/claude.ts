@@ -3,7 +3,9 @@ import { logEvent } from "./logging.js";
 import { recordHeartbeat } from "./runStatus.js";
 
 /** The one place the model is named. */
-export const CLAUDE_MODEL = "claude-sonnet-5";
+/** An undated alias: a model update under it can change behaviour. Set
+ * CLAUDE_MODEL_ID to pin a dated snapshot (and re-run `npm run eval`). */
+export const CLAUDE_MODEL = process.env.CLAUDE_MODEL_ID || "claude-sonnet-5";
 
 let client: Anthropic | undefined;
 

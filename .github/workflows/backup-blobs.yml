@@ -1,0 +1,45 @@
+name: Back up signed contracts
+
+# Daily copy of the private Blob store's signed contracts, signatures, parked
+# office notices and funnel counts into a GitHub Actions artifact (kept 90
+# days). Records a "backup" heartbeat that /admin shows as "Latest backup".
+# Restore: see README.md. Skipped, not failed, until BLOB_READ_WRITE_TOKEN is set.
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - run: npm ci
+      - name: Copy the Blob store
+        run: npx tsx scripts/backupBlobs.ts blob-backup
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BLOB_NAMESPACE: production
+      - name: Keep the copy
+        if: ${{ hashFiles('blob-backup/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-backup
+          path: blob-backup
+          retention-days: 90
+      - name: Report a failed backup
+        if: ${{ failure() }}
+        run: |
+          if [ -z "$HITTA_API_KEY" ]; then
+            echo "::warning::The backup failed and HITTA_API_KEY is not set, so nobody was alerted."
+            exit 0
+          fi
+          curl -s -X POST -H "Authorization: Bearer $HITTA_API_KEY" -H "Content-Type: application/json" \
+            -d '{"project":"Mountain High Roll-Off Bot","title":"The roll-off bot backup failed","summary":"The daily copy of signed contracts failed. Check the Back up signed contracts runs in GitHub Actions.","urgency":"normal"}' \
+            https://34-67-123-90.sslip.io/reports || true
+        env:
+          HITTA_API_KEY: ${{ secrets.HITTA_API_KEY }}

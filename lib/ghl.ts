@@ -142,7 +142,7 @@ export async function sendSms(contactId: string, message: string): Promise<void>
   if (!res.ok) throw new Error(`sendSms failed: ${res.status} ${await res.text()}`);
 }
 
-/** Used by mts-sync/submitContracts.ts to find contacts api/webhook.ts has
+/** For the planned automatic MTS submission (not built yet): finds contacts api/webhook.ts has
  * marked ready for real MTS contract submission. Confirmed live 2026-07-28
  * against the real GHL API: POST /contacts/search with a "tags contains"
  * filter works as expected. */

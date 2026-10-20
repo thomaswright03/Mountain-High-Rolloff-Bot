@@ -74,7 +74,11 @@ test("/admin/status.json has the agreed shape, for a signed-in session and for t
     assert.equal(r.status, 200);
     assert.deepEqual(Object.keys(r.body).sort(), ["checked_at", "functions", "overall", "product"]);
     assert.deepEqual(Object.keys(r.body.functions[0]).sort(), ["detail", "last_checked", "last_success", "name", "next_expected_run", "status", "tier"]);
-    assert.ok(["OK", "Warning", "Down", "Unknown"].includes(r.body.overall));
+    assert.ok(["ok", "warning", "down", "unknown"].includes(r.body.overall));
+    for (const f of r.body.functions) {
+      assert.ok(["ok", "warning", "down", "unknown"].includes(f.status), f.status);
+      assert.ok(["important", "key", "basic"].includes(f.tier), f.tier);
+    }
   }
 });
 
@@ -84,10 +88,10 @@ test("a recorded job result drives its row", async () => {
   const c = await cookie();
   const r = await call("GET", { query: { format: "json" }, headers: { cookie: c } });
   const row = (n: string) => r.body.functions.find((f: any) => f.name === n);
-  assert.equal(row("Lead pick-up from MTS").status, "OK");
-  assert.equal(row("Scheduled texts").status, "Down");
-  assert.equal(r.body.overall, "Down");
-  assert.equal(row("GitHub Actions job").status, "Down");
+  assert.equal(row("Lead pick-up from MTS").status, "ok");
+  assert.equal(row("Scheduled texts").status, "down");
+  assert.equal(r.body.overall, "down");
+  assert.equal(row("GitHub Actions job").status, "down");
 });
 
 function inputs(over: Partial<StatusInputs> = {}): StatusInputs {
@@ -125,4 +129,33 @@ test("a signed contract still waiting for the office is a visible warning; a pau
   assert.match(s.functions.find((f) => f.name === "Kill switch")!.detail, /PAUSED/);
   const missing = buildStatus(inputs({ env: { DRY_RUN: "true" } }));
   assert.equal(missing.functions.find((f) => f.name === "Contracts signable")!.status, "Down");
+});
+
+test("a run paused by the kill switch, or an unreachable flag with test mode off, is not shown as OK", () => {
+  const base = inputs();
+  const pausedBeat = { ...base.beats["rolloff-send"]!, paused: true };
+  const a = buildStatus(inputs({ beats: { ...base.beats, "rolloff-send": pausedBeat } }));
+  const rowA = a.functions.find((f) => f.name === "Scheduled texts")!;
+  assert.equal(rowA.status, "Warning");
+  assert.match(rowA.detail, /kill switch/);
+  const b = buildStatus(inputs({ env: { ...base.env, DRY_RUN: "false" }, killswitch: null }));
+  assert.notEqual(b.functions.find((f) => f.name === "Scheduled texts")!.status, "OK");
+  assert.equal(b.functions.find((f) => f.name === "Test mode and TCPA gate")!.status, "Warning");
+});
+
+test("no run for over 60 minutes makes the overall status down", () => {
+  const base = inputs();
+  const old = { ...base.beats["rolloff-send"]!, lastRun: "2026-10-20T16:30:00Z" };
+  assert.equal(buildStatus(inputs({ beats: { ...base.beats, "rolloff-send": old } })).overall, "Down");
+});
+
+test("a stale backup warns and then goes down; a fresh one is OK", () => {
+  const base = inputs();
+  const row = (hoursAgo: number) => {
+    const t = new Date(base.now.getTime() - hoursAgo * 3_600_000).toISOString();
+    return buildStatus(inputs({ beats: { ...base.beats, backup: { name: "backup", ok: true, lastRun: t, lastSuccess: t, detail: "12 files" } } })).functions.find((f) => f.name === "Latest backup")!;
+  };
+  assert.equal(row(2).status, "OK");
+  assert.equal(row(40).status, "Warning");
+  assert.equal(row(70).status, "Down");
 });

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { dashboardPassword, isSignedIn, passwordMatches, sessionCookie } from "../lib/dashboardAuth.js";
-import { collectStatus, type AdminStatus, type Status } from "../lib/adminStatus.js";
+import { collectStatus, toJson, type AdminStatus, type Status } from "../lib/adminStatus.js";
 import { LATEST_UPDATES } from "../lib/latestUpdate.js";
 import { escapeHtml } from "../lib/contract.js";
 import { logEvent } from "../lib/logging.js";
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const status = await collectStatus();
   if (wantsJson) {
-    res.status(200).json(status);
+    res.status(200).json(toJson(status));
     return;
   }
   sendHtml(res, 200, (n) => statusPage(n, status));
@@ -111,6 +111,7 @@ button { min-height: 44px; margin-top: 12px; width: 100%; font: inherit; font-we
 input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 6px; }
 .err { color: var(--down); }
+.signin { max-width: 380px; margin: 48px auto; }
 @media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } }
 `;
 
@@ -124,7 +125,7 @@ function signInPage(nonce: string, error = ""): string {
   return shell(
     nonce,
     "Roll-off bot: admin",
-    `<main style="max-width:380px;margin:48px auto"><h1>Roll-off bot: admin</h1><p class="dim">Sign in to see what is working.</p>
+    `<main class="signin"><h1>Roll-off bot: admin</h1><p class="dim">Sign in to see what is working.</p>
 ${error ? `<p class="err" role="alert">${escapeHtml(error)}</p>` : ""}
 <form method="post" action="/admin"><label for="password">Password</label>
 <input id="password" name="password" type="password" autocomplete="current-password" required autofocus /><button type="submit">Sign in</button></form></main>`

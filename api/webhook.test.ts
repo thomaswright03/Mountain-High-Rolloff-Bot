@@ -1,4 +1,5 @@
 import { startFlagServer } from "../lib/testHelpers/flagServer.js";
+import { memoryLockBackend, setLockBackendForTests } from "../lib/replyLock.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -63,8 +64,6 @@ before(async () => {
   process.env.DRY_RUN = "false";
   flag = await startFlagServer();
   process.env.KILLSWITCH_URL = flag.url;
-  delete process.env.SUPABASE_URL;
-  delete process.env.SUPABASE_SERVICE_KEY;
 
   handler = (await import("./webhook.js")).default as any;
 });
@@ -76,6 +75,7 @@ after(async () => {
 });
 
 beforeEach(() => {
+  setLockBackendForTests(memoryLockBackend());
   funnel = memoryFunnelBackend();
   setFunnelBackendForTests(funnel);
   ghl.sentMessages.length = 0;
@@ -311,4 +311,12 @@ test("an internal failure returns a generic error, never the error text", async 
   const state = await send("does_not_exist_boom", "conv_boom", "hi");
   assert.equal(state.statusCode, 500);
   assert.deepEqual(state.body, { error: "internal error" });
+});
+
+test("two webhook deliveries of the same text at once send exactly one reply", async () => {
+  const text = "yes still need one";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  const [a, b] = await Promise.all([send("sam", "conv_sam", text), send("sam", "conv_sam", text)]);
+  assert.deepEqual([a.body.action, b.body.action].sort(), ["sent", "skipped_duplicate_delivery"]);
+  assert.equal(ghl.sentMessages.length, 1);
 });

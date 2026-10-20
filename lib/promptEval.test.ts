@@ -39,3 +39,10 @@ for (const c of CASES) {
 test("the model name lives in one constant", () => {
   assert.match(CLAUDE_MODEL, /^claude-/);
 });
+
+test("the roll-off prompt has a clean service area: no developer TODOs and no residential signup wording", () => {
+  assert.doesNotMatch(prompt, /TODO/);
+  assert.doesNotMatch(prompt, /signup|sign up|sign-up/i);
+  assert.match(prompt, /Loveland/);
+  assert.match(prompt, /Colorado/);
+});

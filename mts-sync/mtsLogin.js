@@ -1,5 +1,5 @@
-// Shared MTS login flow — extracted from export.js so submitContracts.ts
-// doesn't duplicate these selectors and drift out of sync with it.
+// Shared MTS login flow, used by the lead pick-up and the booking check, so
+// the selectors live in one place.
 const EMAIL_XPATH = "xpath=/html/body/div[2]/div[2]/form/div[1]/div/input";
 const PASSWORD_XPATH = "xpath=/html/body/div[2]/div[2]/form/div[2]/div/input";
 

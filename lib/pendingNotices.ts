@@ -1,6 +1,7 @@
 import { put, get, list, del } from "@vercel/blob";
 import { addNote, addTag } from "./ghl.js";
 import { logEvent } from "./logging.js";
+import { blobFolder } from "./blobNamespace.js";
 
 // A signed contract must reach the office. If the GHL note and tags can't be
 // written right after signing, the notice is parked here (private Blob
@@ -28,7 +29,7 @@ export interface PendingBackend {
   ready(): boolean;
 }
 
-const folder = () => (process.env.VERCEL_ENV === "production" ? "pending" : "test-pending");
+const folder = () => blobFolder("pending");
 
 const vercelBackend: PendingBackend = {
   ready: () => Boolean(process.env.BLOB_READ_WRITE_TOKEN),

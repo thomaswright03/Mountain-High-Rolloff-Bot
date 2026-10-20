@@ -75,6 +75,8 @@ jobs:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           KILLSWITCH_URL: ${{ secrets.KILLSWITCH_URL }}
           DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+          # Same Blob folders as the Vercel site's production, so /admin sees this job.
+          BLOB_NAMESPACE: production
 
       # Every contact it checks comes from GHL. GHL is on hold (Thomas,
       # 2026-10-10: they may set up a new GHL account for this), so this
@@ -98,6 +100,8 @@ jobs:
           # is counted on the dashboard (lib/funnelStore.ts). Optional.
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+          # Same Blob folders as the Vercel site's production, so /admin sees this job.
+          BLOB_NAMESPACE: production
 
       # Tells Thomas (through Hitta) when either step failed. Skipped, with a
       # warning in the run log, until the HITTA_API_KEY secret is added.

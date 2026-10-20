@@ -9,6 +9,21 @@ export interface UpdateEntry {
 
 export const LATEST_UPDATES: UpdateEntry[] = [
   {
+    date: "2026-10-21",
+    frontend: [
+      "/admin: the sign-in form is now the right width (its style was being blocked).",
+      "/admin: new \"Latest backup\" row; \"Scheduled texts\" shows Warning when the kill switch has paused the bot; the test mode row says what it blocks.",
+    ],
+    changes: [
+      "The scheduled job and the Vercel site now share the same Blob folders (BLOB_NAMESPACE), so /admin sees the job's results and parked contract notices get retried.",
+      "Daily backup of signed contracts to a GitHub Actions artifact, with a restore script.",
+      "/admin/status.json now uses lowercase status and tier values.",
+      "Replies: two deliveries of the same text send one reply.",
+      "The AI gets a clean roll-off service-area block (no residential or developer notes).",
+      "npm run eval grades real model drafts with code checks; model can be pinned with CLAUDE_MODEL_ID.",
+    ],
+  },
+  {
     date: "2026-10-20",
     frontend: [
       "New /admin status page (sign in with the dashboard password) and /admin/status.json: what is working, grouped Important, Key and Basic, with last checked and last success in Denver time.",

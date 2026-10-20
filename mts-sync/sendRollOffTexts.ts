@@ -260,7 +260,7 @@ export async function run(contactIdOverride?: string): Promise<void> {
   if (!(await isServiceActive())) {
     logEvent({ event: "rolloff_text_service_paused" });
     console.log("Paused by the kill switch (or the flag could not be read): nothing sent.");
-    await recordHeartbeat("rolloff-send", true, "paused by the kill switch, nothing sent");
+    await recordHeartbeat("rolloff-send", true, "paused by the kill switch, nothing sent", new Date(), { paused: true });
     return;
   }
 

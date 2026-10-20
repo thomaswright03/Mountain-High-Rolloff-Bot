@@ -1,4 +1,5 @@
 import { list } from "@vercel/blob";
+import { blobFolder } from "./blobNamespace.js";
 import { isServiceActive } from "./killswitch.js";
 import { pendingNoticeSummary } from "./pendingNotices.js";
 import { readHeartbeat, statusStoreReady, type Heartbeat } from "./runStatus.js";
@@ -43,7 +44,30 @@ export interface StatusInputs {
   pending: { count: number; oldest: string | null } | null;
 }
 
-const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login"];
+const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup"];
+
+/** The backup job runs daily; later than this is stale. */
+const BACKUP_WARN_HOURS = 30;
+const BACKUP_DOWN_HOURS = 54;
+
+type Lower = "ok" | "warning" | "down" | "unknown";
+
+/** The shape the CAO's reader parses: lowercase status and tier values. */
+export interface AdminStatusJson {
+  product: string;
+  checked_at: string;
+  overall: Lower;
+  functions: Array<Omit<FunctionStatus, "status" | "tier"> & { status: Lower; tier: "important" | "key" | "basic" }>;
+}
+
+export function toJson(s: AdminStatus): AdminStatusJson {
+  return {
+    product: s.product,
+    checked_at: s.checked_at,
+    overall: s.overall.toLowerCase() as Lower,
+    functions: s.functions.map((f) => ({ ...f, status: f.status.toLowerCase() as Lower, tier: f.tier.toLowerCase() as "important" | "key" | "basic" })),
+  };
+}
 
 function minutesSince(iso: string, now: Date): number {
   return (now.getTime() - new Date(iso).getTime()) / 60_000;
@@ -57,6 +81,7 @@ function jobRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date, wha
   const age = minutesSince(beat.lastRun, now);
   const next = new Date(new Date(beat.lastRun).getTime() + JOB_INTERVAL_MIN * 60_000).toISOString();
   if (!beat.ok) return { ...base, next_expected_run: next, status: "Down", detail: `The last run failed: ${beat.detail}` };
+  if (beat.paused && age <= JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: `Paused by the kill switch (or its flag couldn't be read): nothing is being sent. ${beat.detail}` };
   if (age > JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Down", detail: `No run for ${Math.round(age)} minutes (expected every ${JOB_INTERVAL_MIN}). Last: ${beat.detail}` };
   if (age > JOB_WARN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: `Last run was ${Math.round(age)} minutes ago (expected every ${JOB_INTERVAL_MIN}). ${beat.detail}` };
   return { ...base, next_expected_run: next, status: "OK", detail: beat.detail };
@@ -72,6 +97,17 @@ function serviceRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date,
   return { ...base, status: "OK", detail: beat.detail };
 }
 
+/** Signed contracts are copied out of the Blob store daily (scripts/backupBlobs.ts). */
+function backupRow(beat: Heartbeat | null, now: Date): FunctionStatus {
+  const base = { tier: "Basic" as Tier, name: "Latest backup", last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: null };
+  if (!beat) return { ...base, status: "Unknown", detail: "No backup has been recorded yet." };
+  if (!beat.ok) return { ...base, status: "Down", detail: `The last backup failed: ${beat.detail}` };
+  const hours = minutesSince(beat.lastRun, now) / 60;
+  if (hours > BACKUP_DOWN_HOURS) return { ...base, status: "Down", detail: `Last backup was ${Math.round(hours)} hours ago. ${beat.detail}` };
+  if (hours > BACKUP_WARN_HOURS) return { ...base, status: "Warning", detail: `Last backup was ${Math.round(hours)} hours ago (expected daily). ${beat.detail}` };
+  return { ...base, status: "OK", detail: `${Math.round(hours)} hours old. ${beat.detail}` };
+}
+
 export function buildStatus(i: StatusInputs): AdminStatus {
   const { now, env, beats } = i;
   const checked = now.toISOString();
@@ -82,7 +118,14 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   const importBeat = beats["rolloff-import"] ?? null;
   const sendBeat = beats["rolloff-send"] ?? null;
   rows.push(jobRow("Important", "Lead pick-up from MTS", importBeat, now, "pick-up"));
-  rows.push(jobRow("Important", "Scheduled texts", sendBeat, now, "texting"));
+  const texts = jobRow("Important", "Scheduled texts", sendBeat, now, "texting");
+  // Live, the kill switch decides whether anything is sent. If its flag is
+  // paused, unreachable or unset, a green "last run" must not hide that.
+  if (!testMode && texts.status === "OK" && !i.killswitch?.active) {
+    texts.status = "Warning";
+    texts.detail = `Paused by the kill switch: the flag says paused, can't be reached or isn't set, so scheduled texts and replies are stopped. ${texts.detail}`;
+  }
+  rows.push(texts);
   const replies = serviceRow("Important", "Replies answered", beats.replies ?? null, now, "the reply path");
   // Replies only happen when a lead texts in, so a quiet day isn't a fault.
   if (replies.status === "Warning" && beats.replies?.ok) replies.status = "OK";
@@ -108,8 +151,9 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   rows.push({ tier: "Key", name: "GHL API", status: i.ghl.status, last_checked: i.ghl.status === "Unknown" ? null : checked, last_success: i.ghl.status === "OK" ? checked : null, next_expected_run: null, detail: i.ghl.detail });
   rows.push(serviceRow("Key", "Claude API", beats.claude ?? null, now, "Claude"));
   rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
-  rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : env.BLOB_READ_WRITE_TOKEN ? "Down" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
+  rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
   const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
+  rows.push(backupRow(beats.backup ?? null, now));
   const job = jobRow("Key", "GitHub Actions job", latestRun, now, "scheduled job");
   const jobBad = [importBeat, sendBeat].some((b) => b && !b.ok);
   rows.push(jobBad ? { ...job, status: "Down", detail: `A step failed in its last run. ${job.detail}` } : job);
@@ -121,14 +165,17 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   else if (i.killswitch?.active) ks = { status: "OK", detail: "The flag was reached and says active." };
   else ks = { status: "Warning", detail: "PAUSED: the flag says paused, or it couldn't be reached. Texting and replies are stopped." };
   rows.push({ tier: "Basic", name: "Kill switch", ...ks, last_checked: checked, last_success: ks.status === "OK" ? checked : null, next_expected_run: null });
+  // Not a fault while in test mode (on purpose), but a live bot blocked by
+  // the consent gate sends nothing, so that is a warning.
+  const blocked = testMode || !ROLLOFF_TCPA_CONSENT_CONFIRMED;
   rows.push({
     tier: "Basic",
     name: "Test mode and TCPA gate",
-    status: "OK",
+    status: !testMode && !ROLLOFF_TCPA_CONSENT_CONFIRMED ? "Warning" : "OK",
     last_checked: checked,
-    last_success: checked,
+    last_success: blocked ? null : checked,
     next_expected_run: null,
-    detail: `Test mode (DRY_RUN) is ${testMode ? "ON: nothing is texted or written to GHL" : "OFF"}. TCPA consent gate: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "confirmed" : "NOT confirmed, so no first texts go out"}.`,
+    detail: `Test mode (DRY_RUN) is ${testMode ? "ON: nothing is texted, and nothing is written to GHL" : "OFF"}. TCPA consent gate: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "confirmed" : "NOT confirmed, so no scheduled text of any kind goes out"}. ${blocked ? "The bot is not sending." : "The bot can send."}`,
   });
   const sha = env.VERCEL_GIT_COMMIT_SHA;
   rows.push({
@@ -170,7 +217,7 @@ export async function collectStatus(env: NodeJS.ProcessEnv = process.env, now: D
 async function checkBlob(env: NodeJS.ProcessEnv): Promise<{ ok: boolean; detail: string }> {
   if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "No Blob store is connected (BLOB_READ_WRITE_TOKEN is not set)." };
   try {
-    await list({ prefix: "status/", limit: 1 });
+    await list({ prefix: `${blobFolder("status")}/`, limit: 1 });
     return { ok: true, detail: "The store answered a list request." };
   } catch (err: any) {
     return { ok: false, detail: String(err?.message ?? err).slice(0, 200) };

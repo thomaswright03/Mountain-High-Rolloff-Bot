@@ -11,6 +11,7 @@ import { isExcludedCity } from "./serviceArea.js";
 import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
 import { logEvent } from "./logging.js";
 import { recordFunnelEvent } from "./funnelStore.js";
+import { claimReply, replyLockKey } from "./replyLock.js";
 
 const NEEDS_HUMAN_TAG = "ai-needs-human";
 
@@ -141,6 +142,16 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   if (history[history.length - 1]?.direction === "outbound") {
     logEvent({ event: "rolloff_skip_no_new_inbound", contactId });
     return { action: "skipped_no_new_message" };
+  }
+
+  // Two deliveries of the same text can arrive together and both pass the
+  // check above; only the one that claims this message replies.
+  if (!isDryRun()) {
+    const newest = history[history.length - 1];
+    if (!(await claimReply(replyLockKey(contactId, newest!)))) {
+      logEvent({ event: "rolloff_skip_duplicate_delivery", contactId });
+      return { action: "skipped_duplicate_delivery" };
+    }
   }
 
   const isFirstReply = !history.some((t) => t.direction === "outbound");

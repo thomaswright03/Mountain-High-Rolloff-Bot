@@ -91,8 +91,6 @@ before(async () => {
   process.env.ANTHROPIC_BASE_URL = claude.url;
   process.env.ANTHROPIC_API_KEY = "fake-key-for-tests";
   process.env.KILLSWITCH_URL = (await startFlagServer()).url;
-  delete process.env.SUPABASE_URL;
-  delete process.env.SUPABASE_SERVICE_KEY;
 
   ({ processEntry, run } = (await import("./sendRollOffTexts.js")) as any);
   ({ addNote } = await import("../lib/ghl.js"));

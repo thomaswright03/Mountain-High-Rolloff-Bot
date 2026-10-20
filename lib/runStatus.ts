@@ -1,5 +1,6 @@
 import { put, get } from "@vercel/blob";
 import { logEvent } from "./logging.js";
+import { blobFolder } from "./blobNamespace.js";
 
 // Recorded results for /admin (api/admin.ts): each job and each outside
 // service writes one small JSON file (a "heartbeat") to the private Blob
@@ -16,6 +17,8 @@ export interface Heartbeat {
   /** When it last succeeded. */
   lastSuccess: string | null;
   detail: string;
+  /** Set when the run was stopped by the kill switch rather than finishing its work. */
+  paused?: boolean;
 }
 
 export interface StatusBackend {
@@ -24,7 +27,7 @@ export interface StatusBackend {
   ready(): boolean;
 }
 
-const folder = () => (process.env.VERCEL_ENV === "production" ? "status" : "test-status");
+const folder = () => blobFolder("status");
 const SAFE_NAME = /^[a-z0-9-]{1,40}$/;
 
 const vercelBackend: StatusBackend = {
@@ -61,7 +64,7 @@ export function statusStoreReady(): boolean {
 }
 
 /** Never throws. */
-export async function recordHeartbeat(name: string, ok: boolean, detail: string, now: Date = new Date()): Promise<void> {
+export async function recordHeartbeat(name: string, ok: boolean, detail: string, now: Date = new Date(), extra: { paused?: boolean } = {}): Promise<void> {
   if (!SAFE_NAME.test(name) || !backend.ready()) return;
   try {
     const previous = await backend.read(name).catch(() => null);
@@ -71,6 +74,7 @@ export async function recordHeartbeat(name: string, ok: boolean, detail: string,
       lastRun: now.toISOString(),
       lastSuccess: ok ? now.toISOString() : previous?.lastSuccess ?? null,
       detail: detail.slice(0, 300),
+      ...(extra.paused ? { paused: true } : {}),
     });
   } catch (err: any) {
     logEvent({ event: "heartbeat_write_failed", name, error: err?.message });

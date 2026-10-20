@@ -51,6 +51,18 @@ const COMPANIES: CompanyConfig[] = [
       // The booking form itself is MTS's RollOffSignupWidget, embedded on
       // this page — the same MTS system the residential signup uses.
       bookingUrl: "https://mountainhighdisposal.com/temp-roll-off--signup/",
+      serviceArea: `
+        Mountain High delivers roll-off dumpsters in Colorado only. Cities
+        served: Ault, Aurora, Berthoud, Centennial, Cherry Hills Village,
+        Denver, Eaton, Englewood, Evans, Fort Collins, Galeton, Gill,
+        Gillcrest, Greeley, Johnstown, Kersey, Lakewood, Laporte, LaSalle,
+        Littleton, Lucerne, Milliken, Pierce, Severance, Sherrelwood,
+        Timnath, Thornton, Welby, Wellington, Westminster, Windsor.
+        Mountain High is not taking new customers in Loveland right now. If
+        the address is in Loveland, or outside Colorado, or a city not on
+        this list, don't promise anything: say the office can check whether
+        they can deliver there (970-834-1144).
+      `.trim(),
       facts: `
         Sizes (outside dimensions, from the website):
         - 6 yard: 82" long x 72" wide x 61" tall
