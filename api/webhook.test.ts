@@ -1,3 +1,4 @@
+import { startFlagServer } from "../lib/testHelpers/flagServer.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -12,6 +13,7 @@ import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStor
 const BOOKING_URL = findCompany("Mountain High Disposal")!.rollOff!.bookingUrl;
 const COLD_OPEN = "Hey Sam, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. do you still need one?";
 
+let flag: Awaited<ReturnType<typeof startFlagServer>>;
 let ghl: MockGhlServer;
 let claude: MockClaudeServer;
 let handler: (req: any, res: any) => Promise<void>;
@@ -59,7 +61,8 @@ before(async () => {
   process.env.WEBHOOK_SHARED_SECRET = "test-secret";
   process.env.GHL_COMPANY_FIELD_KEY = "field_company";
   process.env.DRY_RUN = "false";
-  delete process.env.KILLSWITCH_URL;
+  flag = await startFlagServer();
+  process.env.KILLSWITCH_URL = flag.url;
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_KEY;
 
@@ -82,6 +85,7 @@ beforeEach(() => {
   claude.requests.length = 0;
   claude.draft = "sweet, you can finish it here [[BOOKING_LINK]] and it'll show your quote before you pay";
   claude.handoff = false;
+  flag.set({ active: true });
 });
 
 async function send(contactId: string, conversationId: string, body: string) {
@@ -251,4 +255,60 @@ test("once a rep has replied in the thread, the bot stops", async () => {
   const state = await send("sam", "conv_sam", "thanks");
   assert.equal(state.body.action, "skipped_human_replied");
   assert.equal(ghl.sentMessages.length, 0);
+});
+
+test("test mode: a STOP is answered as opted out but nothing is written to GHL", async () => {
+  process.env.DRY_RUN = "true";
+  try {
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "STOP"]]);
+    const state = await send("sam", "conv_sam", "STOP");
+    assert.equal(state.body.action, "opted_out");
+    assert.equal(ghl.taggedContacts.length, 0);
+    assert.equal(ghl.notes.length, 0);
+    assert.equal(ghl.sentMessages.length, 0);
+  } finally {
+    process.env.DRY_RUN = "false";
+  }
+});
+
+test("test mode: a hand-off to the office writes no tag, note or star", async () => {
+  process.env.DRY_RUN = "true";
+  try {
+    const text = "I want a refund";
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+    const state = await send("sam", "conv_sam", text);
+    assert.equal(state.body.action, "escalated");
+    assert.equal(ghl.taggedContacts.length, 0);
+    assert.equal(ghl.notes.length, 0);
+    assert.equal(ghl.starredConversations.length, 0);
+  } finally {
+    process.env.DRY_RUN = "false";
+  }
+});
+
+test("kill switch: a flag saying paused, an erroring flag, or an unreachable flag all pause replies", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "hi"]]);
+  flag.set({ active: false });
+  assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
+  flag.set({ active: true }, 500);
+  assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
+  flag.set({ nonsense: true });
+  assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
+  const real = process.env.KILLSWITCH_URL;
+  process.env.KILLSWITCH_URL = "http://127.0.0.1:1/unreachable.json";
+  try {
+    assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
+  } finally {
+    process.env.KILLSWITCH_URL = real;
+  }
+  assert.equal(ghl.sentMessages.length, 0);
+  flag.set({ active: true });
+  assert.equal((await send("sam", "conv_sam", "hi")).body.ok, true);
+});
+
+test("an internal failure returns a generic error, never the error text", async () => {
+  setHistory("conv_boom", [["outbound", COLD_OPEN], ["inbound", "hi"]]);
+  const state = await send("does_not_exist_boom", "conv_boom", "hi");
+  assert.equal(state.statusCode, 500);
+  assert.deepEqual(state.body, { error: "internal error" });
 });

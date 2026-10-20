@@ -10,6 +10,7 @@ import { safeFirstName } from "./outboundSafety.js";
 import { isExcludedCity } from "./serviceArea.js";
 import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
 import { logEvent } from "./logging.js";
+import { recordFunnelEvent } from "./funnelStore.js";
 
 const NEEDS_HUMAN_TAG = "ai-needs-human";
 
@@ -31,9 +32,23 @@ async function tryStarConversation(conversationId: string | undefined, contactId
   }
 }
 
-async function handToOffice(contactId: string, conversationId: string | undefined, note: string): Promise<void> {
-  await addTag(contactId, NEEDS_HUMAN_TAG);
+/** Test mode (DRY_RUN=true) writes nothing to GHL, tags and notes included:
+ * it logs what it would have written instead. */
+const isDryRun = () => process.env.DRY_RUN === "true";
+
+/** Tag and/or note the contact, unless in test mode. */
+async function writeToContact(contactId: string, tag: string | null, note: string): Promise<void> {
+  if (isDryRun()) {
+    logEvent({ event: "rolloff_dry_run_would_write", contactId, tag, note });
+    return;
+  }
+  if (tag) await addTag(contactId, tag);
   await addNote(contactId, note);
+}
+
+async function handToOffice(contactId: string, conversationId: string | undefined, note: string): Promise<void> {
+  await writeToContact(contactId, NEEDS_HUMAN_TAG, note);
+  if (isDryRun()) return;
   await tryStarConversation(conversationId, contactId);
 }
 
@@ -78,9 +93,8 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   logEvent({ event: "rolloff_safety_verdict", contactId, company: company.displayName, verdict });
 
   if (verdict.action === "opt_out") {
-    await addTag(contactId, "ai-opted-out");
-    await addNote(contactId, `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
-    if (conversationId) {
+    await writeToContact(contactId, "ai-opted-out", `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
+    if (conversationId && !isDryRun()) {
       try {
         await markConversationRead(conversationId);
       } catch (err: any) {
@@ -118,8 +132,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   const history = await getConversationHistory(conversationId);
 
   if (history.some((t) => t.sentByHuman)) {
-    await addTag(contactId, NEEDS_HUMAN_TAG);
-    await addNote(contactId, "AI stopped (roll-off): a human already replied in this conversation.");
+    await writeToContact(contactId, NEEDS_HUMAN_TAG, "AI stopped (roll-off): a human already replied in this conversation.");
     logEvent({ event: "rolloff_skip_human_replied", contactId });
     return { action: "skipped_human_replied" };
   }
@@ -138,7 +151,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   });
 
   const rawDraft = await draftReply(buildRollOffReplyPrompt(company, rollOff, isFirstReply), formatHistory(history), leadDetails);
-  const dryRun = process.env.DRY_RUN === "true";
+  const dryRun = isDryRun();
 
   let withContract = rawDraft;
   let contractId: string | undefined;
@@ -198,6 +211,8 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     throw smsErr;
   }
   if (contractId) {
+    // The dashboard counts a contract as sent only now that the text went out.
+    await recordFunnelEvent("contract-sent", contractId);
     await addNote(contactId, `AI texted this roll-off lead a contract to sign (contract ${contractId}). Once they sign, they're tagged ai-rolloff-contract-signed for the office to take payment.`);
   }
   logEvent({ event: "rolloff_sent", contactId, draft });

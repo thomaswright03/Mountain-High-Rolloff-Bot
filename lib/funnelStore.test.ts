@@ -56,6 +56,7 @@ test("the dashboard's activity comes from the funnel files and this environment'
   put("funnel/reached/b.json", "2026-10-09T16:00:00Z");
   put("funnel/responded/a.json", "2026-10-08T17:00:00Z");
   put("test-contracts/c1/contract.json", "2026-10-08T18:00:00Z");
+  put("funnel/contract-sent/c1.json", "2026-10-08T18:01:00Z"); // texted; c2 below was made but never texted
   put("test-contracts/c1/signed.json", "2026-10-09T18:00:00Z");
   put("test-contracts/c1/signed.html", "2026-10-09T18:00:00Z");
   put("test-contracts/c2/contract.json", "2026-10-09T19:00:00Z");
@@ -65,7 +66,7 @@ test("the dashboard's activity comes from the funnel files and this environment'
   const activity = await loadFunnelActivity();
   assert.deepEqual(activity.reached.map((d) => d.toISOString()).sort(), ["2026-10-08T16:00:00.000Z", "2026-10-09T16:00:00.000Z"]);
   assert.deepEqual(activity.responded.map((d) => d.toISOString()), ["2026-10-08T17:00:00.000Z"]);
-  assert.equal(activity.contractsSent.length, 2);
+  assert.equal(activity.contractsSent.length, 1);
   assert.deepEqual(activity.contractsSigned.map((d) => d.toISOString()), ["2026-10-09T18:00:00.000Z"]);
 
   process.env.VERCEL_ENV = "production";

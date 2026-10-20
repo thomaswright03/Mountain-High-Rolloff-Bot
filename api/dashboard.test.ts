@@ -106,7 +106,8 @@ test("the numbers: 90 Denver days, each thing counted on its own day", async () 
   put("funnel/reached/a.json", hoursAgo(1));
   put("funnel/reached/b.json", hoursAgo(1));
   put("funnel/responded/a.json", hoursAgo(1));
-  put("test-contracts/c1/contract.json", hoursAgo(1));
+  put("funnel/contract-sent/c1.json", hoursAgo(1));
+  put("test-contracts/c9/contract.json", hoursAgo(1)); // made but never texted: not counted
   put("test-contracts/c1/signed.json", hoursAgo(1));
   put("funnel/reached/old.json", hoursAgo(24 * 200)); // outside the window
 

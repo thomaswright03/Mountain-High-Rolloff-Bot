@@ -14,20 +14,23 @@
  * so a GitHub-hosted flag could stay stale for 5-10+ minutes regardless of
  * cache-busting. This approach updates instantly on redeploy instead.
  *
- * Fails OPEN (treats the service as active) if the flag itself can't be
- * reached — a transient network issue with the flag host shouldn't take
- * down the whole service.
+ * Fails CLOSED once the bot can text for real (DRY_RUN is not "true"): if
+ * the flag URL is unset, unreachable, or answers with an error, the service
+ * counts as paused, so a broken or missing flag can never leave a live bot
+ * texting with no way to stop it. In test mode (DRY_RUN=true, nothing is
+ * sent) a missing flag is treated as active so test runs still work, but
+ * a flag that is configured and unreachable is still treated as paused.
  */
-export async function isServiceActive(): Promise<boolean> {
-  const url = process.env.KILLSWITCH_URL;
-  if (!url) return true; // not configured -> always active
+export async function isServiceActive(env: NodeJS.ProcessEnv = process.env): Promise<boolean> {
+  const url = env.KILLSWITCH_URL;
+  if (!url) return env.DRY_RUN === "true";
 
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return true;
+    if (!res.ok) return false;
     const data = (await res.json()) as any;
-    return data?.active !== false;
+    return data?.active === true;
   } catch {
-    return true;
+    return false;
   }
 }

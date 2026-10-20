@@ -5,6 +5,7 @@ import { isServiceActive } from "../lib/killswitch.js";
 import { hasRollOffTag } from "../lib/rollOff.js";
 import { handleRollOffReply } from "../lib/rollOffReply.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
+import { recordHeartbeat } from "../lib/runStatus.js";
 import type { InboundMessage } from "../lib/types.js";
 
 /** Same payload shapes the Kaizen lead-responder webhook accepts, so one
@@ -45,7 +46,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const inbound = parsePayload(req.body);
   if (!inbound.contactId || !inbound.body) {
-    res.status(400).json({ error: "missing contactId or message body", receivedKeys: Object.keys(req.body ?? {}) });
+    logEvent({ event: "webhook_bad_payload", receivedKeys: Object.keys(req.body ?? {}) });
+    res.status(400).json({ error: "missing contactId or message body" });
     return;
   }
 
@@ -59,17 +61,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // For the dashboard: their first text in counts as responded. Never
     // throws, so it can't hold up or break the reply.
     const [result] = await Promise.all([handleRollOffReply(inbound, contact), recordFunnelEvent("responded", inbound.contactId)]);
+    await recordHeartbeat("replies", true, `last reply handled: ${result.action}`);
     res.status(200).json({ ok: true, flow: "rolloff", ...result });
   } catch (err: any) {
     logEvent({ event: "error", contactId: inbound.contactId, error: err.message });
+    await recordHeartbeat("replies", false, "last reply failed (see the Vercel logs)");
     // Best-effort: if the failure was inside a GHL call, this may fail too,
     // but it's worth trying so a person sees the contact stalled.
-    try {
-      await addTag(inbound.contactId, "ai-needs-human");
-      await addNote(inbound.contactId, `AI hit an error and could not reply: ${err.message}`);
-    } catch {
-      // swallow: the original error is already logged and returned
+    // Not in test mode, which writes nothing to GHL.
+    if (process.env.DRY_RUN !== "true") {
+      try {
+        await addTag(inbound.contactId, "ai-needs-human");
+        await addNote(inbound.contactId, `AI hit an error and could not reply: ${err.message}`);
+      } catch {
+        // swallow: the original error is already logged
+      }
     }
-    res.status(500).json({ error: err.message });
+    // Details stay in the log; the caller gets nothing internal.
+    res.status(500).json({ error: "internal error" });
   }
 }

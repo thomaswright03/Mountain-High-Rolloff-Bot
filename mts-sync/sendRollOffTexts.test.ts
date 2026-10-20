@@ -1,3 +1,4 @@
+import { startFlagServer } from "../lib/testHelpers/flagServer.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -28,6 +29,7 @@ const base = (id: string, extra: Record<string, any> = {}) => ({
 
 let ghl: MockGhlServer;
 let claude: MockClaudeServer;
+let run: (contactId?: string) => Promise<void>;
 let processEntry: (entry: { contactId: string }, opts?: any) => Promise<"sent" | "skipped" | "retry">;
 let addNote: (contactId: string, body: string) => Promise<void>;
 let funnel: ReturnType<typeof memoryFunnelBackend>;
@@ -88,11 +90,11 @@ before(async () => {
   process.env.GHL_API_TOKEN = "test-token";
   process.env.ANTHROPIC_BASE_URL = claude.url;
   process.env.ANTHROPIC_API_KEY = "fake-key-for-tests";
-  delete process.env.KILLSWITCH_URL;
+  process.env.KILLSWITCH_URL = (await startFlagServer()).url;
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_KEY;
 
-  ({ processEntry } = (await import("./sendRollOffTexts.js")) as any);
+  ({ processEntry, run } = (await import("./sendRollOffTexts.js")) as any);
   ({ addNote } = await import("../lib/ghl.js"));
 });
 
@@ -253,4 +255,21 @@ test("a follow-up draft asking for any other template is refused before anything
   claude.draft = "[[SIGNUP_SUMMARY]]";
   await assert.rejects(processEntry({ contactId: "fu1_due" }, live()), /template we don't send here/);
   assert.equal(ghl.sentMessages.length, 0);
+});
+
+test("a run where a contact errors exits non-zero and records the failure, so GitHub flags the job", async () => {
+  const { memoryStatusBackend, setStatusBackendForTests } = await import("../lib/runStatus.js");
+  const beats = memoryStatusBackend();
+  setStatusBackendForTests(beats);
+  process.env.DRY_RUN = "true";
+  const previous = process.exitCode;
+  try {
+    await run("no_such_contact");
+    assert.equal(process.exitCode, 1);
+    assert.equal(beats.beats.get("rolloff-send")!.ok, false);
+    assert.match(beats.beats.get("rolloff-send")!.detail, /errored 1/);
+  } finally {
+    process.exitCode = previous;
+    setStatusBackendForTests(null);
+  }
 });

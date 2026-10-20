@@ -168,3 +168,9 @@ export function contractsSince(contracts: MtsContractRow[], sinceDay: string): M
     return day === null || day >= sinceDay;
   });
 }
+
+/** TCPA/consent gate: nothing is texted until Mountain High's CEO confirms
+ * in writing that roll-off leads agreed to be texted. Independent of, and in
+ * addition to, KILLSWITCH_URL and DRY_RUN. Replies don't need it (the lead
+ * texted us first). Read by mts-sync/sendRollOffTexts.ts and shown on /admin. */
+export const ROLLOFF_TCPA_CONSENT_CONFIRMED = false;

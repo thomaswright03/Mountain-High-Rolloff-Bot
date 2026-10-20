@@ -13,11 +13,10 @@ import {
 } from "../lib/contract.js";
 import { loadContract, loadSignature, loadSignedDocument, saveSignature } from "../lib/contractStore.js";
 import { findCompany } from "../lib/companies.js";
-import { addNote, addTag } from "../lib/ghl.js";
+import { CONTRACT_SIGNED_TAG as SIGNED_TAG, notifyOfficeOrPark } from "../lib/pendingNotices.js";
 import { logEvent } from "../lib/logging.js";
 
-export const CONTRACT_SIGNED_TAG = "ai-rolloff-contract-signed";
-const NEEDS_HUMAN_TAG = "ai-needs-human";
+export const CONTRACT_SIGNED_TAG = SIGNED_TAG;
 
 /**
  * The contract signing page, at /contract/{id}?t={token} (vercel.json).
@@ -151,18 +150,13 @@ async function notifyOffice(contract: Contract, record: SignatureRecord): Promis
     logEvent({ event: "contract_signed_dry_run_no_ghl", contractId: contract.id, contactId: contract.contactId });
     return;
   }
-  try {
-    await addNote(
-      contract.contactId,
-      `Signed the roll-off contract online${contract.isTest ? " (TEST contract)" : ""}: ${contract.size.yards} yard, $${contract.size.pricePerDump} per dump up to ${contract.size.tonLimit} ton(s), ` +
-        `requested delivery ${contract.requestedDeliveryDate ?? "not given"}, at ${contract.customer.serviceAddress}. Signed by "${record.typedName}" at ${record.signedAt}. ` +
-        `Contract ${contract.id}. Please call to take payment and confirm the delivery date.`
-    );
-    await addTag(contract.contactId, CONTRACT_SIGNED_TAG);
-    await addTag(contract.contactId, NEEDS_HUMAN_TAG);
-  } catch (err: any) {
-    logEvent({ event: "contract_signed_ghl_failed", contractId: contract.id, error: err.message });
-  }
+  await notifyOfficeOrPark(
+    contract.id,
+    contract.contactId,
+    `Signed the roll-off contract online${contract.isTest ? " (TEST contract)" : ""}: ${contract.size.yards} yard, $${contract.size.pricePerDump} per dump up to ${contract.size.tonLimit} ton(s), ` +
+      `requested delivery ${contract.requestedDeliveryDate ?? "not given"}, at ${contract.customer.serviceAddress}. Signed by "${record.typedName}" at ${record.signedAt}. ` +
+      `Contract ${contract.id}. Please call to take payment and confirm the delivery date.`
+  );
 }
 
 function page(title: string, body: string, nonce?: string, extraCss = ""): string {

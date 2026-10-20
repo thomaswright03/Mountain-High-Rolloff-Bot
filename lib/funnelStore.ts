@@ -9,7 +9,7 @@ import { logEvent } from "./logging.js";
 //
 //   funnel/reached/{contactId}.json    the bot's first text to a lead went out
 //   funnel/responded/{contactId}.json  the lead's first text back
-//   {contracts folder}/{id}/contract.json  a contract link was made for them
+//   funnel/contract-sent/{contractId}.json  the contract link was texted to them
 //   {contracts folder}/{id}/signed.json    they signed it
 //
 // The funnel files are written once per lead (the first one wins), and
@@ -17,7 +17,7 @@ import { logEvent } from "./logging.js";
 // never show up as reached. The dashboard only lists the files and uses
 // each one's upload time, it never reads them.
 
-export type FunnelEvent = "reached" | "responded";
+export type FunnelEvent = "reached" | "responded" | "contract-sent";
 
 export const FUNNEL_FOLDER = "funnel";
 
@@ -117,7 +117,7 @@ export async function loadFunnelActivity(): Promise<FunnelActivity> {
   return {
     reached: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/reached/`)),
     responded: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/responded/`)),
-    contractsSent: at(contracts, (p) => p.endsWith("/contract.json")),
+    contractsSent: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/contract-sent/`)),
     contractsSigned: at(contracts, (p) => p.endsWith("/signed.json")),
   };
 }

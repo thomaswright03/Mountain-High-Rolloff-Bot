@@ -10,9 +10,15 @@ name: Send roll-off texts
 # already finished booking gets texted to finish.
 #
 # TEST MODE (Thomas, 2026-10-10: don't reach out to any real leads yet):
-# DRY_RUN stays "true" on both steps, so runs only log what they'd pick up
-# and send, and write nothing to GHL. Going live also needs
-# ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in sendRollOffTexts.ts.
+# DRY_RUN is "true" unless the repo variable DRY_RUN is set to something
+# else (Settings > Secrets and variables > Actions > Variables), so going
+# live or back to test mode needs no commit. Going live also needs
+# ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in sendRollOffTexts.ts, and
+# KILLSWITCH_URL set: with DRY_RUN off, a missing or unreachable kill-switch
+# flag means PAUSED (lib/killswitch.ts).
+#
+# A failed or partly failed step fails the job. The send step runs even if
+# pick-up failed, and a final step reports any failure to Hitta.
 on:
   schedule:
     - cron: "*/10 * * * *"
@@ -66,13 +72,15 @@ jobs:
           GHL_API_TOKEN: ${{ secrets.GHL_API_TOKEN }}
           GHL_LOCATION_ID: ${{ secrets.GHL_LOCATION_ID }}
           GHL_COMPANY_FIELD_KEY: ${{ secrets.GHL_COMPANY_FIELD_KEY }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           KILLSWITCH_URL: ${{ secrets.KILLSWITCH_URL }}
-          DRY_RUN: "true"
+          DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
 
       # Every contact it checks comes from GHL. GHL is on hold (Thomas,
       # 2026-10-10: they may set up a new GHL account for this), so this
       # step is skipped, not failed, until the GHL secrets are added.
       - name: Send roll-off texts
+        if: ${{ !cancelled() }}
         run: |
           if [ -z "$GHL_API_TOKEN" ] || [ -z "$GHL_LOCATION_ID" ]; then
             echo "::notice::GHL_API_TOKEN / GHL_LOCATION_ID secrets not set yet, skipping texts."
@@ -89,4 +97,19 @@ jobs:
           # The Vercel project's Blob store token, so each lead's first text
           # is counted on the dashboard (lib/funnelStore.ts). Optional.
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          DRY_RUN: "true"
+          DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+
+      # Tells Thomas (through Hitta) when either step failed. Skipped, with a
+      # warning in the run log, until the HITTA_API_KEY secret is added.
+      - name: Report a failed run
+        if: ${{ failure() }}
+        run: |
+          if [ -z "$HITTA_API_KEY" ]; then
+            echo "::warning::The roll-off job failed and HITTA_API_KEY is not set, so nobody was alerted."
+            exit 0
+          fi
+          curl -s -X POST -H "Authorization: Bearer $HITTA_API_KEY" -H "Content-Type: application/json" \
+            -d "{\"project\":\"Mountain High Roll-Off Bot\",\"title\":\"The roll-off bot's scheduled job failed\",\"summary\":\"A run of the roll-off texting job failed or partly failed. Check the GitHub Actions run history for Mountain High Rolloff Bot.\",\"urgency\":\"normal\"}" \
+            https://34-67-123-90.sslip.io/reports || true
+        env:
+          HITTA_API_KEY: ${{ secrets.HITTA_API_KEY }}

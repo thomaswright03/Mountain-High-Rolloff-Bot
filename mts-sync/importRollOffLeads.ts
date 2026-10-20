@@ -18,6 +18,7 @@ import { ROLLOFF_ELIGIBLE_TAG } from "../lib/rollOff.js";
 import { getContact, upsertContact, addTag, addNote } from "../lib/ghl.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
+import { recordHeartbeat } from "../lib/runStatus.js";
 import { loginToMts } from "./mtsLogin.js";
 
 const TARGET_COMPANY = "Mountain High Disposal";
@@ -164,6 +165,8 @@ export async function importLead(lead: RollOffLead, opts: { dryRun: boolean; now
 export async function run(): Promise<void> {
   if (!(await isServiceActive())) {
     logEvent({ event: "rolloff_import_service_paused" });
+    console.log("Paused by the kill switch (or the flag could not be read): nothing picked up.");
+    await recordHeartbeat("rolloff-import", true, "paused by the kill switch, nothing picked up");
     return;
   }
   const dryRun = process.env.DRY_RUN === "true";
@@ -174,7 +177,13 @@ export async function run(): Promise<void> {
   let rows: MtsRollOffRow[];
   try {
     const page = await browser.newPage();
-    await loginToMts(page);
+    try {
+      await loginToMts(page);
+    } catch (err: any) {
+      await recordHeartbeat("mts-login", false, String(err?.message ?? err));
+      throw err;
+    }
+    await recordHeartbeat("mts-login", true, "logged in");
     rows = await readRollOffLeadRows(page);
   } finally {
     await browser.close();
@@ -195,6 +204,7 @@ export async function run(): Promise<void> {
     }
   }
   console.log(`Done. Picked up: ${imported}, errored: ${errored}${dryRun ? " (DRY_RUN: nothing written to GHL)" : ""}`);
+  await recordHeartbeat("rolloff-import", errored === 0, `${dryRun ? "test mode: " : ""}read ${rows.length} rows, picked up ${imported}, errored ${errored}`);
   if (errored > 0) process.exitCode = 1;
 }
 
@@ -202,8 +212,9 @@ export async function run(): Promise<void> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dotenv = await import("dotenv");
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
-  run().catch((err) => {
+  run().catch(async (err) => {
     console.error(err);
+    await recordHeartbeat("rolloff-import", false, `crashed: ${err?.message ?? err}`);
     process.exit(1);
   });
 }

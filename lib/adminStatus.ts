@@ -1,0 +1,195 @@
+import { list } from "@vercel/blob";
+import { isServiceActive } from "./killswitch.js";
+import { pendingNoticeSummary } from "./pendingNotices.js";
+import { readHeartbeat, statusStoreReady, type Heartbeat } from "./runStatus.js";
+import { ROLLOFF_TCPA_CONSENT_CONFIRMED } from "./rollOff.js";
+
+export type Status = "OK" | "Warning" | "Down" | "Unknown";
+export type Tier = "Important" | "Key" | "Basic";
+
+export interface FunctionStatus {
+  tier: Tier;
+  name: string;
+  status: Status;
+  /** ISO time, or null when there is no check to report. */
+  last_checked: string | null;
+  last_success: string | null;
+  next_expected_run: string | null;
+  detail: string;
+}
+
+export interface AdminStatus {
+  product: string;
+  checked_at: string;
+  overall: Status;
+  functions: FunctionStatus[];
+}
+
+/** The GitHub Actions job is scheduled every 10 minutes. */
+export const JOB_INTERVAL_MIN = 10;
+/** Later than this after the last run is a warning; twice that is down. GitHub's
+ * scheduler is often a few minutes late, so one missed slot isn't an alarm. */
+const JOB_WARN_MIN = 30;
+const JOB_DOWN_MIN = 60;
+
+/** Everything the page needs from outside, so tests can supply it. */
+export interface StatusInputs {
+  now: Date;
+  env: NodeJS.ProcessEnv;
+  beats: Record<string, Heartbeat | null>;
+  blob: { ok: boolean; detail: string };
+  ghl: { status: Status; detail: string };
+  killswitch: { active: boolean } | null;
+  pending: { count: number; oldest: string | null } | null;
+}
+
+const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login"];
+
+function minutesSince(iso: string, now: Date): number {
+  return (now.getTime() - new Date(iso).getTime()) / 60_000;
+}
+
+/** A scheduled job's row, from its recorded result. Anything stale is a warning
+ * or down, never OK. */
+function jobRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date, what: string): FunctionStatus {
+  const base = { tier, name, last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: null as string | null };
+  if (!beat) return { ...base, status: "Unknown", detail: `No recorded ${what} run yet.` };
+  const age = minutesSince(beat.lastRun, now);
+  const next = new Date(new Date(beat.lastRun).getTime() + JOB_INTERVAL_MIN * 60_000).toISOString();
+  if (!beat.ok) return { ...base, next_expected_run: next, status: "Down", detail: `The last run failed: ${beat.detail}` };
+  if (age > JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Down", detail: `No run for ${Math.round(age)} minutes (expected every ${JOB_INTERVAL_MIN}). Last: ${beat.detail}` };
+  if (age > JOB_WARN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: `Last run was ${Math.round(age)} minutes ago (expected every ${JOB_INTERVAL_MIN}). ${beat.detail}` };
+  return { ...base, next_expected_run: next, status: "OK", detail: beat.detail };
+}
+
+/** A service row, from the last time the bot used it. */
+function serviceRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date, what: string): FunctionStatus {
+  const base = { tier, name, last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: null };
+  if (!beat) return { ...base, status: "Unknown", detail: `The bot hasn't used ${what} since status recording started.` };
+  if (!beat.ok) return { ...base, status: "Down", detail: `The last attempt failed: ${beat.detail}` };
+  const hours = minutesSince(beat.lastRun, now) / 60;
+  if (hours > 24) return { ...base, status: "Warning", detail: `Last used ${Math.round(hours)} hours ago, so this is not a fresh check. ${beat.detail}` };
+  return { ...base, status: "OK", detail: beat.detail };
+}
+
+export function buildStatus(i: StatusInputs): AdminStatus {
+  const { now, env, beats } = i;
+  const checked = now.toISOString();
+  const testMode = env.DRY_RUN === "true";
+  const rows: FunctionStatus[] = [];
+
+  // Important
+  const importBeat = beats["rolloff-import"] ?? null;
+  const sendBeat = beats["rolloff-send"] ?? null;
+  rows.push(jobRow("Important", "Lead pick-up from MTS", importBeat, now, "pick-up"));
+  rows.push(jobRow("Important", "Scheduled texts", sendBeat, now, "texting"));
+  const replies = serviceRow("Important", "Replies answered", beats.replies ?? null, now, "the reply path");
+  // Replies only happen when a lead texts in, so a quiet day isn't a fault.
+  if (replies.status === "Warning" && beats.replies?.ok) replies.status = "OK";
+  rows.push(replies);
+
+  const missing = ["CONTRACT_SIGNING_SECRET", "PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"].filter((k) => !env[k]);
+  const pending = i.pending;
+  let signable: FunctionStatus;
+  if (missing.length > 0) {
+    signable = { tier: "Important", name: "Contracts signable", status: "Down", last_checked: checked, last_success: null, next_expected_run: null, detail: `Not set up: ${missing.join(", ")} missing.` };
+  } else if (!i.blob.ok) {
+    signable = { tier: "Important", name: "Contracts signable", status: "Down", last_checked: checked, last_success: null, next_expected_run: null, detail: `Set up, but the Blob store didn't answer: ${i.blob.detail}` };
+  } else if (pending && pending.count > 0) {
+    signable = { tier: "Important", name: "Contracts signable", status: "Warning", last_checked: checked, last_success: checked, next_expected_run: null, detail: `Signing works, but ${pending.count} signed contract(s) haven't reached the office in GHL yet (oldest ${pending.oldest ?? "unknown"}). The scheduled job keeps retrying.` };
+  } else if (pending === null) {
+    signable = { tier: "Important", name: "Contracts signable", status: "Warning", last_checked: checked, last_success: null, next_expected_run: null, detail: "Set up, but the list of contracts waiting for the office couldn't be read." };
+  } else {
+    signable = { tier: "Important", name: "Contracts signable", status: "OK", last_checked: checked, last_success: checked, next_expected_run: null, detail: "Signing settings are in place, the Blob store answers and no signed contract is waiting for the office." };
+  }
+  rows.push(signable);
+
+  // Key
+  rows.push({ tier: "Key", name: "GHL API", status: i.ghl.status, last_checked: i.ghl.status === "Unknown" ? null : checked, last_success: i.ghl.status === "OK" ? checked : null, next_expected_run: null, detail: i.ghl.detail });
+  rows.push(serviceRow("Key", "Claude API", beats.claude ?? null, now, "Claude"));
+  rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
+  rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : env.BLOB_READ_WRITE_TOKEN ? "Down" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
+  const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
+  const job = jobRow("Key", "GitHub Actions job", latestRun, now, "scheduled job");
+  const jobBad = [importBeat, sendBeat].some((b) => b && !b.ok);
+  rows.push(jobBad ? { ...job, status: "Down", detail: `A step failed in its last run. ${job.detail}` } : job);
+
+  // Basic
+  const hasFlag = Boolean(env.KILLSWITCH_URL);
+  let ks: { status: Status; detail: string };
+  if (!hasFlag) ks = { status: "Warning", detail: testMode ? "No kill-switch URL set. Fine while in test mode, but live texting stays blocked until it is set." : "No kill-switch URL set, so everything is paused (the switch fails closed)." };
+  else if (i.killswitch?.active) ks = { status: "OK", detail: "The flag was reached and says active." };
+  else ks = { status: "Warning", detail: "PAUSED: the flag says paused, or it couldn't be reached. Texting and replies are stopped." };
+  rows.push({ tier: "Basic", name: "Kill switch", ...ks, last_checked: checked, last_success: ks.status === "OK" ? checked : null, next_expected_run: null });
+  rows.push({
+    tier: "Basic",
+    name: "Test mode and TCPA gate",
+    status: "OK",
+    last_checked: checked,
+    last_success: checked,
+    next_expected_run: null,
+    detail: `Test mode (DRY_RUN) is ${testMode ? "ON: nothing is texted or written to GHL" : "OFF"}. TCPA consent gate: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "confirmed" : "NOT confirmed, so no first texts go out"}.`,
+  });
+  const sha = env.VERCEL_GIT_COMMIT_SHA;
+  rows.push({
+    tier: "Basic",
+    name: "Deployed version",
+    status: sha ? "OK" : "Unknown",
+    last_checked: checked,
+    last_success: sha ? checked : null,
+    next_expected_run: null,
+    detail: sha ? `Commit ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""}. See Latest Update below for the last change round.` : "Not running on Vercel, so there is no deployed version to report.",
+  });
+
+  const important = rows.filter((r) => r.tier === "Important");
+  const overall: Status = important.some((r) => r.status === "Down")
+    ? "Down"
+    : rows.some((r) => r.status === "Down" || r.status === "Warning")
+      ? "Warning"
+      : rows.every((r) => r.status === "Unknown")
+        ? "Unknown"
+        : rows.some((r) => r.status === "Unknown" && r.tier !== "Basic")
+          ? "Warning"
+          : "OK";
+  return { product: "Mountain High Roll-Off Bot", checked_at: checked, overall, functions: rows };
+}
+
+/** Real checks against the outside world, then buildStatus. */
+export async function collectStatus(env: NodeJS.ProcessEnv = process.env, now: Date = new Date()): Promise<AdminStatus> {
+  const [beatList, blob, ghl, pending, killswitch] = await Promise.all([
+    Promise.all(BEAT_NAMES.map((n) => readHeartbeat(n))),
+    checkBlob(env),
+    checkGhl(env),
+    pendingNoticeSummary(),
+    env.KILLSWITCH_URL ? isServiceActive(env).then((active) => ({ active })) : Promise.resolve(null),
+  ]);
+  const beats = Object.fromEntries(BEAT_NAMES.map((n, idx) => [n, beatList[idx] ?? null]));
+  return buildStatus({ now, env, beats, blob, ghl, killswitch, pending });
+}
+
+async function checkBlob(env: NodeJS.ProcessEnv): Promise<{ ok: boolean; detail: string }> {
+  if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "No Blob store is connected (BLOB_READ_WRITE_TOKEN is not set)." };
+  try {
+    await list({ prefix: "status/", limit: 1 });
+    return { ok: true, detail: "The store answered a list request." };
+  } catch (err: any) {
+    return { ok: false, detail: String(err?.message ?? err).slice(0, 200) };
+  }
+}
+
+async function checkGhl(env: NodeJS.ProcessEnv): Promise<{ status: Status; detail: string }> {
+  if (!env.GHL_API_TOKEN || !env.GHL_LOCATION_ID) return { status: "Unknown", detail: "GHL isn't connected yet (GHL_API_TOKEN or GHL_LOCATION_ID not set)." };
+  try {
+    const base = env.GHL_API_BASE_URL ?? "https://services.leadconnectorhq.com";
+    const res = await fetch(`${base}/locations/${encodeURIComponent(env.GHL_LOCATION_ID)}`, {
+      headers: { Authorization: `Bearer ${env.GHL_API_TOKEN}`, Version: "2021-07-28" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) return { status: "OK", detail: "GHL answered a location lookup with the bot's token." };
+    if (res.status === 401) return { status: "Down", detail: "GHL rejected the API token (401)." };
+    if (res.status === 403) return { status: "Warning", detail: "GHL is reachable, but this token isn't allowed to read the location (403); texting may still work." };
+    return { status: "Down", detail: `GHL answered ${res.status}.` };
+  } catch (err: any) {
+    return { status: "Down", detail: `GHL didn't answer: ${String(err?.message ?? err).slice(0, 150)}` };
+  }
+}

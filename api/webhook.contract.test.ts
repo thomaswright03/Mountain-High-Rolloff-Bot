@@ -1,3 +1,4 @@
+import { startFlagServer } from "../lib/testHelpers/flagServer.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -54,7 +55,7 @@ before(async () => {
   process.env.ANTHROPIC_API_KEY = "fake-key-for-tests";
   process.env.WEBHOOK_SHARED_SECRET = "test-secret";
   process.env.GHL_COMPANY_FIELD_KEY = "field_company";
-  delete process.env.KILLSWITCH_URL;
+  process.env.KILLSWITCH_URL = (await startFlagServer()).url;
   delete process.env.VERCEL_ENV;
   handler = (await import("./webhook.js")).default as any;
 });

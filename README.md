@@ -95,12 +95,35 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
 ## Before it goes live
 
 1. **Test mode for now (Thomas, 2026-10-10).** The workflow runs with
-   `DRY_RUN: "true"`: it only logs what it would pick up and send, and writes
-   nothing to GHL.
+   `DRY_RUN` true unless the GitHub repo *variable* `DRY_RUN` says otherwise
+   (Settings > Secrets and variables > Actions > Variables), so switching
+   needs no commit. In test mode it only logs what it would pick up and send,
+   and writes nothing to GHL, replies included (opt-out and hand-off tags and
+   notes are logged, not written). Set the same `DRY_RUN` in Vercel.
 2. `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `mts-sync/sendRollOffTexts.ts` stays
    `false` until Mountain High's CEO OKs texting these leads.
-3. The first test-mode runs should be checked against the real MTS page:
+3. **Kill switch.** Host a `{"active":true}` file and set `KILLSWITCH_URL`
+   (GitHub secret and Vercel env var). Flip it to `{"active":false}` to stop
+   the importer, the sender and the reply webhook with no deploy. It fails
+   closed: with test mode off, a missing, unreachable or erroring flag means
+   paused (in test mode a missing URL is allowed; a URL that can't be reached
+   is still paused).
+4. **Failure alerts.** A failed or partly failed run fails the GitHub job and
+   a last step posts to Hitta (`HITTA_API_KEY` secret; without it the run log
+   shows a warning). The send step runs even when pick-up failed.
+5. The first test-mode runs should be checked against the real MTS page:
    the lead pick-up was built from a screenshot, not the page's HTML.
+
+## Status page
+
+`/admin` (sign in with `DASHBOARD_PASSWORD`) and `/admin/status.json` (also
+`Authorization: Bearer $ADMIN_STATUS_TOKEN`, 16+ characters). Groups
+Important, Key and Basic; each row has a status, last checked and last
+success in Denver time. Job and service results are recorded in the Blob
+store (`lib/runStatus.ts`) and anything stale shows Warning, Down or
+Unknown. The Latest Update section reads `lib/latestUpdate.ts`: add an entry
+each round. Signed contracts whose GHL note failed are parked in Blob and
+retried by the scheduled job; any still waiting show on the page.
 
 ## Setup
 

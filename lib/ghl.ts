@@ -3,8 +3,33 @@ import { assertSafeOutboundSms } from "./outboundSafety.js";
 
 // Overridable via GHL_API_BASE_URL so tests can point this at a local mock
 // server instead of the real GHL API. Unset in production -> same real URL.
-const BASE_URL = process.env.GHL_API_BASE_URL ?? "https://services.leadconnectorhq.com";
+const baseUrl = () => process.env.GHL_API_BASE_URL ?? "https://services.leadconnectorhq.com";
 const API_VERSION = "2021-07-28";
+
+const GHL_TIMEOUT_MS = 10_000;
+const GHL_MAX_ATTEMPTS = 3;
+const GHL_RETRY_BASE_MS = Number(process.env.GHL_RETRY_BASE_MS ?? 500);
+
+/** fetch with a timeout, retrying timeouts, network errors, 429 and 5xx a
+ * couple of times with backoff. Other statuses are returned as-is. */
+async function ghlFetch(url: string, init: RequestInit = {}, maxAttempts = GHL_MAX_ATTEMPTS): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(GHL_TIMEOUT_MS) });
+      if ((res.status === 429 || res.status >= 500) && attempt < maxAttempts) {
+        lastErr = new Error(`status ${res.status}`);
+      } else {
+        return res;
+      }
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts) throw err;
+    }
+    await new Promise((r) => setTimeout(r, GHL_RETRY_BASE_MS * 2 ** (attempt - 1)));
+  }
+  throw lastErr;
+}
 
 function headers(): Record<string, string> {
   const token = process.env.GHL_API_TOKEN;
@@ -17,7 +42,7 @@ function headers(): Record<string, string> {
 }
 
 export async function getContact(contactId: string): Promise<Record<string, any>> {
-  const res = await fetch(`${BASE_URL}/contacts/${contactId}`, { headers: headers() });
+  const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}`, { headers: headers() });
   if (!res.ok) throw new Error(`getContact failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as any;
   return data.contact;
@@ -43,7 +68,7 @@ export function extractCompanyValue(contact: Record<string, any>, fieldKey: stri
  * contact instead of expecting the workflow to hand us one. */
 export async function findConversationId(contactId: string, locationId: string): Promise<string | undefined> {
   const params = new URLSearchParams({ locationId, contactId });
-  const res = await fetch(`${BASE_URL}/conversations/search?${params}`, { headers: headers() });
+  const res = await ghlFetch(`${baseUrl()}/conversations/search?${params}`, { headers: headers() });
   if (!res.ok) throw new Error(`findConversationId failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as any;
   return data.conversations?.[0]?.id;
@@ -55,7 +80,7 @@ export async function findConversationId(contactId: string, locationId: string):
  * tags. Used for both a confirmed signup and a human handoff — the two
  * moments a rep actually needs to look at a thread right now. */
 export async function starConversation(conversationId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/conversations/${conversationId}`, {
+  const res = await ghlFetch(`${baseUrl()}/conversations/${conversationId}`, {
     method: "PUT",
     headers: headers(),
     body: JSON.stringify({ starred: true }),
@@ -70,7 +95,7 @@ export async function starConversation(conversationId: string): Promise<void> {
  * live against the real GHL API (unlike starConversation) — verify against
  * the next real opt-out. */
 export async function markConversationRead(conversationId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/conversations/${conversationId}`, {
+  const res = await ghlFetch(`${baseUrl()}/conversations/${conversationId}`, {
     method: "PUT",
     headers: headers(),
     body: JSON.stringify({ unreadCount: 0 }),
@@ -79,7 +104,7 @@ export async function markConversationRead(conversationId: string): Promise<void
 }
 
 export async function getConversationHistory(conversationId: string): Promise<ConversationTurn[]> {
-  const res = await fetch(`${BASE_URL}/conversations/${conversationId}/messages`, {
+  const res = await ghlFetch(`${baseUrl()}/conversations/${conversationId}/messages`, {
     headers: headers(),
   });
   if (!res.ok) throw new Error(`getConversationHistory failed: ${res.status} ${await res.text()}`);
@@ -105,7 +130,7 @@ export async function getConversationHistory(conversationId: string): Promise<Co
  * the link allow-list is enforced — see lib/outboundSafety.ts. */
 export async function sendSms(contactId: string, message: string): Promise<void> {
   assertSafeOutboundSms(message);
-  const res = await fetch(`${BASE_URL}/conversations/messages`, {
+  const res = await ghlFetch(`${baseUrl()}/conversations/messages`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
@@ -113,7 +138,7 @@ export async function sendSms(contactId: string, message: string): Promise<void>
       contactId,
       message,
     }),
-  });
+  }, 1); // one attempt: a retried send could text the lead twice
   if (!res.ok) throw new Error(`sendSms failed: ${res.status} ${await res.text()}`);
 }
 
@@ -130,7 +155,7 @@ export async function findContactsByTag(tag: string, locationId: string): Promis
   let searchAfter: any[] | undefined;
 
   while (true) {
-    const res = await fetch(`${BASE_URL}/contacts/search`, {
+    const res = await ghlFetch(`${baseUrl()}/contacts/search`, {
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
@@ -159,7 +184,7 @@ export async function findContactsByTag(tag: string, locationId: string): Promis
  * repo), which would wipe opt-out and needs-human tags. Add tags with
  * addTag afterwards. Returns the contact id. */
 export async function upsertContact(fields: Record<string, unknown>): Promise<string> {
-  const res = await fetch(`${BASE_URL}/contacts/upsert`, {
+  const res = await ghlFetch(`${baseUrl()}/contacts/upsert`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify(fields),
@@ -172,7 +197,7 @@ export async function upsertContact(fields: Record<string, unknown>): Promise<st
 }
 
 export async function addTag(contactId: string, tag: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/contacts/${contactId}/tags`, {
+  const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}/tags`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({ tags: [tag] }),
@@ -181,7 +206,7 @@ export async function addTag(contactId: string, tag: string): Promise<void> {
 }
 
 export async function removeTag(contactId: string, tag: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/contacts/${contactId}/tags`, {
+  const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}/tags`, {
     method: "DELETE",
     headers: headers(),
     body: JSON.stringify({ tags: [tag] }),
@@ -196,7 +221,7 @@ export async function removeTag(contactId: string, tag: string): Promise<void> {
  * CEO's team sees this exactly where they'd already be looking at the
  * contact, with no new infrastructure/account for the handoff to carry. */
 export async function addNote(contactId: string, body: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/contacts/${contactId}/notes`, {
+  const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}/notes`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({ body }),
@@ -207,7 +232,7 @@ export async function addNote(contactId: string, body: string): Promise<void> {
 /** Used by mts-sync/sendRollOffTexts.ts to find the cold-open record note
  * (AI_ROLLOFF_COLD_OPEN_NOTE_MARKER in lib/prompt.ts). Confirmed live 2026-07-28: note objects have a `body` field and `dateAdded`. */
 export async function getNotes(contactId: string): Promise<Array<{ body: string; dateAdded: string }>> {
-  const res = await fetch(`${BASE_URL}/contacts/${contactId}/notes`, { headers: headers() });
+  const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}/notes`, { headers: headers() });
   if (!res.ok) throw new Error(`getNotes failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as any;
   return data.notes ?? [];

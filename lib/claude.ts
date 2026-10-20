@@ -1,4 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { logEvent } from "./logging.js";
+import { recordHeartbeat } from "./runStatus.js";
+
+/** The one place the model is named. */
+export const CLAUDE_MODEL = "claude-sonnet-5";
 
 let client: Anthropic | undefined;
 
@@ -21,15 +26,24 @@ function getClient(): Anthropic {
  * more room to work with.
  * `thinking` isn't in this installed SDK version's types (predates the
  * param) but the raw API accepts it — hence the cast. */
-function createMessage(params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> {
-  return getClient().messages.create({ ...params, thinking: { type: "disabled" } } as any);
+async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, purpose = "claude"): Promise<Anthropic.Message> {
+  try {
+    const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as any);
+    // Token counts per call, so the cost-per-conversation estimate can be checked against real logs.
+    logEvent({ event: "claude_usage", purpose, model: params.model, inputTokens: message.usage?.input_tokens, outputTokens: message.usage?.output_tokens });
+    await recordHeartbeat("claude", true, `last call: ${purpose}`);
+    return message;
+  } catch (err: any) {
+    await recordHeartbeat("claude", false, String(err?.message ?? err).slice(0, 200));
+    throw err;
+  }
 }
 
 /** `leadDetails` is lead-supplied data (e.g. the address from the public
  * signup form) — sent in the user turn, never the system prompt. */
 export async function draftReply(systemPrompt: string, conversationText: string, leadDetails = ""): Promise<string> {
   const response = await createMessage({
-    model: "claude-sonnet-5",
+    model: CLAUDE_MODEL,
     max_tokens: 300,
     system: systemPrompt,
     messages: [
@@ -38,7 +52,7 @@ export async function draftReply(systemPrompt: string, conversationText: string,
         content: `${leadDetails ? `Lead details on file: ${leadDetails}\n\n` : ""}Conversation so far:\n${conversationText}\n\nWrite the next reply as the rep, replying to the lead's most recent message.`,
       },
     ],
-  });
+  }, "draft_reply");
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -56,7 +70,7 @@ export async function draftReply(systemPrompt: string, conversationText: string,
  * prompt. */
 export async function draftFollowUp(systemPrompt: string, conversationText: string, firstName?: string): Promise<string> {
   const response = await createMessage({
-    model: "claude-sonnet-5",
+    model: CLAUDE_MODEL,
     max_tokens: 300,
     system: systemPrompt,
     messages: [
@@ -65,7 +79,7 @@ export async function draftFollowUp(systemPrompt: string, conversationText: stri
         content: `Lead details: ${JSON.stringify({ first_name: firstName ?? null })}\n\nConversation so far (they have not replied to your last message):\n${conversationText || "(nothing yet — your only message was the opening cold open)"}\n\nWrite the follow-up message now, following the system prompt's instructions.`,
       },
     ],
-  });
+  }, "draft_follow_up");
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -83,11 +97,11 @@ export async function draftFollowUp(systemPrompt: string, conversationText: stri
  * that one turn rather than a guaranteed miss. */
 export async function detectHandoff(systemPrompt: string, draft: string): Promise<boolean> {
   const response = await createMessage({
-    model: "claude-sonnet-5",
+    model: CLAUDE_MODEL,
     max_tokens: 50,
     system: systemPrompt,
     messages: [{ role: "user", content: `Message: ${JSON.stringify(draft)}\n\nOutput the JSON object now, and nothing else.` }],
-  });
+  }, "handoff_check");
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return false;
@@ -106,11 +120,11 @@ export async function detectHandoff(systemPrompt: string, draft: string): Promis
  * isn't a JSON object, so callers fail closed. */
 export async function extractJson(systemPrompt: string, userContent: string): Promise<Record<string, unknown> | null> {
   const response = await createMessage({
-    model: "claude-sonnet-5",
+    model: CLAUDE_MODEL,
     max_tokens: 150,
     system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
-  });
+  }, "extract_json");
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return null;
   try {

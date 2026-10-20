@@ -18,6 +18,7 @@ import { isExcludedCity } from "../lib/serviceArea.js";
 import { formatHistory, AI_ROLLOFF_COLD_OPEN_NOTE_MARKER } from "../lib/prompt.js";
 import {
   ROLLOFF_BOOKED_TAG,
+  ROLLOFF_TCPA_CONSENT_CONFIRMED,
   ROLLOFF_COLD_OPEN_SENT_TAG,
   ROLLOFF_ELIGIBLE_TAG,
   ROLLOFF_FOLLOWUP_1_TAG,
@@ -38,6 +39,8 @@ import { getContact, findConversationId, getConversationHistory, getNotes, sendS
 import { isWithinQuietHours } from "../lib/safety.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
+import { recordHeartbeat } from "../lib/runStatus.js";
+import { retryPendingNotices } from "../lib/pendingNotices.js";
 import { loginToMts } from "./mtsLogin.js";
 import { checkMtsContractList } from "./mtsStatusCheck.js";
 import { leadLandedAt } from "../lib/rollOffIntake.js";
@@ -49,14 +52,6 @@ const OPTED_OUT_TAG = "ai-opted-out";
 const SEND_DELAY_MS = 1500; // small pause between real sends, avoids bursting
 // Same blast-radius idea as Kaizen's sendOutreach.ts PACED_SEND_CAP.
 const PACED_SEND_CAP = 100;
-
-// TCPA/consent gate, same role as Kaizen's sendOutreach.ts gate: the CEO signed off on
-// cold texts to residential partial signups (2026-07-28). Texting people who
-// started a roll-off booking is a new audience, so this stays false until
-// Mountain High's CEO OKs it too. Independent of, and in addition to,
-// KILLSWITCH_URL and DRY_RUN. Replies (lib/rollOffReply.ts) don't need it —
-// the lead texted us first.
-const ROLLOFF_TCPA_CONSENT_CONFIRMED = false;
 
 const STOP_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_PROCESSING_TAG, ROLLOFF_BOOKED_TAG, ROLLOFF_FOLLOWUP_2_TAG];
 
@@ -264,7 +259,18 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
 export async function run(contactIdOverride?: string): Promise<void> {
   if (!(await isServiceActive())) {
     logEvent({ event: "rolloff_text_service_paused" });
+    console.log("Paused by the kill switch (or the flag could not be read): nothing sent.");
+    await recordHeartbeat("rolloff-send", true, "paused by the kill switch, nothing sent");
     return;
+  }
+
+  // A signed contract whose GHL note failed earlier is retried here, so the
+  // office still hears about it.
+  try {
+    const pending = await retryPendingNotices();
+    if (pending.delivered || pending.stillPending) console.log(`Contract notices: delivered ${pending.delivered}, still pending ${pending.stillPending}`);
+  } catch (err: any) {
+    logEvent({ event: "contract_notice_retry_crashed", error: err.message });
   }
 
   const cliContactId = contactIdOverride ?? process.argv.find((a) => a.startsWith("--contact-id="))?.split("=")[1];
@@ -311,6 +317,9 @@ export async function run(contactIdOverride?: string): Promise<void> {
   }
 
   console.log(`\nDone. Sent: ${sent}, skipped: ${skipped}, held for retry: ${retried}, errored: ${errored}`);
+  await recordHeartbeat("rolloff-send", errored === 0, `${dryRun ? "test mode: " : ""}checked ${queue.length}, sent ${sent}, skipped ${skipped}, retry ${retried}, errored ${errored}`);
+  // A partly failed run must fail the job, so GitHub tells someone.
+  if (errored > 0) process.exitCode = 1;
 }
 
 // Only self-invoke when run directly, not when imported by a test — and
@@ -318,8 +327,9 @@ export async function run(contactIdOverride?: string): Promise<void> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dotenv = await import("dotenv");
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
-  run().catch((err) => {
+  run().catch(async (err) => {
     console.error(err);
+    await recordHeartbeat("rolloff-send", false, `crashed: ${err?.message ?? err}`);
     process.exit(1);
   });
 }
