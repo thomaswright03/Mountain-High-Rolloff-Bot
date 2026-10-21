@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getContact, addTag, addNote } from "../lib/ghl.js";
 import { logEvent } from "../lib/logging.js";
 import { isServiceActive } from "../lib/killswitch.js";
-import { hasRollOffTag } from "../lib/rollOff.js";
+import { hasRollOffTag, hasResidentialTag } from "../lib/rollOff.js";
 import { handleRollOffReply } from "../lib/rollOffReply.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
@@ -25,7 +25,8 @@ function parsePayload(raw: any): InboundMessage {
  * GHL calls this when a contact texts in. Only contacts tagged
  * ROLLOFF_ELIGIBLE_TAG are this bot's to answer; anyone else is ignored
  * with no side effects at all, since they belong to the residential bot
- * (Kaizen) or to a person.
+ * (Kaizen) or to a person. So is anyone also tagged for the residential
+ * bot, which answers them itself.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -56,6 +57,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!hasRollOffTag(contact.tags)) {
       logEvent({ event: "skip_not_rolloff", contactId: inbound.contactId });
       res.status(200).json({ ok: true, action: "skipped_not_rolloff" });
+      return;
+    }
+    // The residential bot answers this person too (lib/rollOff.ts); one
+    // reply is enough, so this bot stays out.
+    if (hasResidentialTag(contact.tags)) {
+      logEvent({ event: "skip_residential_lead", contactId: inbound.contactId });
+      res.status(200).json({ ok: true, action: "skipped_residential_lead" });
       return;
     }
     // For the dashboard: their first text in counts as responded. Never

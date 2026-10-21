@@ -13,8 +13,11 @@ import type { ConversationTurn, RollOffConfig } from "./types.js";
 // Kept apart from the residential flow end to end: its own tags, its own
 // scheduled job (mts-sync/sendRollOffTexts.ts), its own reply path
 // (lib/rollOffReply.ts, routed from api/webhook.ts), its own prompts
-// (lib/rollOffPrompt.ts). A contact tagged ROLLOFF_ELIGIBLE_TAG belongs to
-// this flow only — the residential cold open and follow-ups skip it.
+// (lib/rollOffPrompt.ts). Both bots text from the same GHL location (and so
+// the same number), and the residential bot (Kaizen) knows nothing about
+// roll-off tags: it texts and answers anyone tagged RESIDENTIAL_TAG. So this
+// bot is the one that steps aside — a contact carrying RESIDENTIAL_TAG is
+// never picked up, texted or answered here, or they'd hear from both bots.
 
 /** Set on a GHL contact by mts-sync/importRollOffLeads.ts (or by hand in
  * GHL). The only way into this flow. */
@@ -52,6 +55,16 @@ const BOOKING_LOOKBACK_DAYS = 14;
 
 export function hasRollOffTag(tags: string[] | undefined): boolean {
   return (tags ?? []).some((t) => t.toLowerCase() === ROLLOFF_ELIGIBLE_TAG);
+}
+
+/** The residential bot's own tag (Kaizen's OUTREACH_ELIGIBLE_TAG). */
+export const RESIDENTIAL_TAG = "ai-outreach-eligible";
+/** Set once by the importer on a residential lead who also started a
+ * roll-off booking, with a note, so the office hears about it once. */
+export const ROLLOFF_SKIPPED_RESIDENTIAL_TAG = "ai-rolloff-skipped-residential";
+
+export function hasResidentialTag(tags: string[] | undefined): boolean {
+  return (tags ?? []).some((t) => t.toLowerCase() === RESIDENTIAL_TAG);
 }
 
 /** True only when the contact's on-file state is set and isn't one the

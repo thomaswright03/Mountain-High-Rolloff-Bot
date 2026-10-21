@@ -14,7 +14,7 @@
 import { chromium, type Page } from "playwright";
 import { findCompany } from "../lib/companies.js";
 import { selectRollOffLeads, AI_ROLLOFF_LEAD_NOTE_MARKER, type MtsRollOffRow, type RollOffLead } from "../lib/rollOffIntake.js";
-import { ROLLOFF_ELIGIBLE_TAG } from "../lib/rollOff.js";
+import { ROLLOFF_ELIGIBLE_TAG, ROLLOFF_SKIPPED_RESIDENTIAL_TAG, RESIDENTIAL_TAG } from "../lib/rollOff.js";
 import { getContact, upsertContact, addTag, addNote } from "../lib/ghl.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
@@ -121,7 +121,7 @@ export async function readRollOffLeadRows(page: Page): Promise<MtsRollOffRow[]> 
   });
 }
 
-export type ImportOutcome = "imported" | "already_tagged" | "dry_run";
+export type ImportOutcome = "imported" | "already_tagged" | "residential_lead" | "dry_run";
 
 /** Creates or updates the GHL contact and tags it for the roll-off flow.
  * Someone already tagged is left alone, so a lead seen on every run is
@@ -151,6 +151,20 @@ export async function importLead(lead: RollOffLead, opts: { dryRun: boolean; now
   if (tags.includes(ROLLOFF_ELIGIBLE_TAG)) {
     logEvent({ event: "rolloff_import_already_tagged", contactId, mtsId: lead.mtsId });
     return "already_tagged";
+  }
+  // The residential bot already owns this person (see lib/rollOff.ts), so
+  // they're never added here. The office gets one note so it knows they
+  // also started a roll-off booking.
+  if (tags.includes(RESIDENTIAL_TAG)) {
+    if (!tags.includes(ROLLOFF_SKIPPED_RESIDENTIAL_TAG)) {
+      await addNote(
+        contactId,
+        `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead ${lead.mtsId}, dated ${lead.date}), but is already a residential lead, so the roll-off bot won't text them. Follow up by hand if needed.`
+      );
+      await addTag(contactId, ROLLOFF_SKIPPED_RESIDENTIAL_TAG);
+    }
+    logEvent({ event: "rolloff_import_residential_lead", contactId, mtsId: lead.mtsId });
+    return "residential_lead";
   }
 
   await addNote(

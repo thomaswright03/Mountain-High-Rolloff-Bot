@@ -145,12 +145,16 @@ test("a reply in test mode, or from someone who isn't a roll-off lead, isn't cou
   assert.equal(funnel.files.size, 0);
 });
 
-test("a contact tagged for both flows is handled as roll-off", async () => {
+test("a contact tagged for both flows is left to the residential bot, with no side effects", async () => {
   const text = "how big is the 30 yard";
   setHistory("conv_both", [["outbound", COLD_OPEN], ["inbound", text]]);
   const state = await send("both_tags", "conv_both", text);
-  assert.equal(state.body.flow, "rolloff");
-  assert.ok(draftRequest());
+  assert.equal(state.statusCode, 200);
+  assert.equal(state.body.action, "skipped_residential_lead");
+  assert.equal(claude.requests.length, 0);
+  assert.equal(ghl.sentMessages.length, 0);
+  assert.equal(ghl.taggedContacts.length, 0);
+  assert.equal(ghl.notes.length, 0);
 });
 
 test("contacts without the roll-off tag are ignored, with no side effects", async () => {
