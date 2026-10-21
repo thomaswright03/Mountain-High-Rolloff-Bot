@@ -160,7 +160,10 @@ against the real store has not been run yet (the store isn't set up).
 `npm run eval` (needs `ANTHROPIC_API_KEY`) sends the tricky messages to the
 real model, grades each draft with code (no URLs, only approved prices, no
 date promises, no "booked", admits being an AI) and writes
-`docs/eval-results.md`. Re-run after any prompt or model change. The model
+`docs/eval-results.md`. Without the key locally, run the **Model check**
+workflow from the Actions tab (`.github/workflows/eval-drafts.yml`): it
+uses the repo's `ANTHROPIC_API_KEY` secret and prints the results to the
+run log. Re-run after any prompt or model change. The model
 is the alias `claude-sonnet-5`; set `CLAUDE_MODEL_ID` to a dated snapshot to
 pin it.
 
