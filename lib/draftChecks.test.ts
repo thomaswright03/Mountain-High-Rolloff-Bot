@@ -15,5 +15,7 @@ test("links, template markers, unapproved amounts, date promises, 'booked' claim
   assert.ok(gradeDraft("we'll deliver it Saturday morning").includes("promises a delivery date"));
   assert.ok(gradeDraft("you're booked for the 20 yard").includes("says it is booked"));
   assert.ok(gradeDraft("I'm a real person here").includes("denies being an AI"));
+  assert.ok(gradeDraft("no delivery fee, that's included").includes("says something is free"));
+  assert.ok(gradeDraft("we don't deliver on weekends, so saturday's not an option").includes("rules out delivery days"));
   assert.ok(gradeDraft("just a quick text from me", { name: "bot", message: "", mustAdmitAi: true }).includes("doesn't admit it is an AI"));
 });

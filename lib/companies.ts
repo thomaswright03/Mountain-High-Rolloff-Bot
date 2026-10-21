@@ -80,13 +80,16 @@ const COMPANIES: CompanyConfig[] = [
         Over the weight limit (from the contract's own terms): 6 and 8 yard
         are $85 extra for anything over 1 ton; 20 and 30 yard are $50 per
         ton over the limit, and $100 per ton over 10 tons.
-        Delivery: within 24-48 hours, not counting weekends. Delivery on a
-        specific day is $100 extra. Pickup is on day 7 unless they call the
-        office to extend; extra days have a daily fee.
+        Delivery: within 24-48 hours of booking, and weekend days don't count
+        toward those hours. Delivery on a specific day they pick is $100
+        extra, and the office sets that up on their call; don't say which
+        days of the week we do or don't deliver. Pickup is on day 7 unless
+        they call the office to extend; extra days have a daily fee.
         Filling it past the top (overfilling) is $100.
         Street placement needs a permit before delivery.
-        Not approved to quote: the daily rate for extra days, or any other
-        fee not listed here. If they ask, say the office can give them the
+        Not approved to quote: whether there's a delivery fee, the daily rate
+        for extra days, or any other fee not listed here. Never say
+        something is free or included unless it's written here. If they ask, say the office can give them the
         exact number.
         Booking: you book it with them right here over text. You ask what
         the contract still needs (size, business or personal, where to put

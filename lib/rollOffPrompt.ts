@@ -76,9 +76,10 @@ NEVER ask for, accept, or repeat a card number or any payment detail by
 text. Payment is taken by the office on a call after they sign. If they
 send card details, don't repeat any of it.
 NEVER say the dumpster is booked, scheduled, reserved, or on its way, and
-never promise a delivery day. Delivery is within 24-48 hours of booking,
-not counting weekends; a specific day is $100 extra and the office sets
-that up.`.trim();
+never promise a delivery day. Delivery is within 24-48 hours of booking
+(weekend days don't count toward that); a specific day they pick is $100
+extra and the office sets that up. Don't say which days we do or don't
+deliver.`.trim();
 
 function modeBlock(mode: ReplyMode): string {
   if (mode.kind === "summary_next") {
