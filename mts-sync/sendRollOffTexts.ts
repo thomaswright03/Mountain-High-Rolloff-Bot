@@ -24,6 +24,7 @@ import {
   ROLLOFF_FOLLOWUP_1_TAG,
   ROLLOFF_FOLLOWUP_2_TAG,
   ROLLOFF_PROCESSING_TAG,
+  RESIDENTIAL_TAG,
   bookingCheckSince,
   isOutsideServiceStates,
   contractsSince,
@@ -53,7 +54,8 @@ const SEND_DELAY_MS = 1500; // small pause between real sends, avoids bursting
 // Same blast-radius idea as Kaizen's sendOutreach.ts PACED_SEND_CAP.
 const PACED_SEND_CAP = 100;
 
-const STOP_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_PROCESSING_TAG, ROLLOFF_BOOKED_TAG, ROLLOFF_FOLLOWUP_2_TAG];
+// RESIDENTIAL_TAG: the residential bot texts them already (lib/rollOff.ts).
+const STOP_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_PROCESSING_TAG, ROLLOFF_BOOKED_TAG, ROLLOFF_FOLLOWUP_2_TAG, RESIDENTIAL_TAG];
 
 interface PendingEntry {
   contactId: string;

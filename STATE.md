@@ -5,7 +5,7 @@ Texts people who start booking a roll-off dumpster on mountainhighdisposal.com b
 ## Status (2026-10-21): TEST MODE, not deployed
 - Reads real MTS leads; texts no one; writes nothing to GHL (replies included).
 - Not on Vercel yet; GHL not connected; texting, replies and contracts never run against real systems.
-- Tests: `npm test` (163) and `npm run typecheck` pass. CI (`.github/workflows/ci.yml`) runs both.
+- Tests: `npm test` (166) and `npm run typecheck` pass. CI (`.github/workflows/ci.yml`) runs both.
 
 ## Parts
 - GitHub Actions every 10 min: `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
@@ -24,6 +24,9 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - Medium 7: `npm run eval` + `lib/draftChecks.ts` written; NOT yet run (needs ANTHROPIC_API_KEY), so `docs/eval-results.md` does not exist. Model still the alias; `CLAUDE_MODEL_ID` env pins a snapshot.
 - Medium 8: per-message reply lock (`lib/replyLock.ts`, Blob `reply-locks/`), concurrent-delivery test.
 - Low 10-12, 14 fixed (README, stale refs, CSP style, log retention documented).
+
+## Shared number with the residential bot (2026-10-21)
+- Both bots send from the same GHL location with no `fromNumber`, so both use the location's default number. Kaizen has no idea roll-off tags exist, so this bot steps aside for anyone tagged `ai-outreach-eligible`: not imported (one note + `ai-rolloff-skipped-residential`), not texted, replies skipped.
 
 ## Not done / open
 - Low 13: a stuck `ROLLOFF_PROCESSING_TAG` is still only logged.

@@ -27,6 +27,8 @@ before(async () => {
       // Already in GHL, e.g. an existing trash customer.
       existing: { phone: "+19705550111", tags: ["2025 serviced"] },
       already_rolloff: { phone: "+19705550122", tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] },
+      residential: { phone: "+19705550133", tags: ["ai-outreach-eligible"] },
+      residential_noted: { phone: "+19705550144", tags: ["ai-outreach-eligible", "ai-rolloff-skipped-residential"] },
     },
     conversationHistories: {},
   });
@@ -75,6 +77,20 @@ test("an existing contact keeps its tags and is added to the roll-off flow", asy
 
 test("someone already in the roll-off flow isn't picked up again", async () => {
   assert.equal(await importLead(lead({ phone: "+19705550122" }), { dryRun: false }), "already_tagged");
+  assert.equal(ghl.taggedContacts.length, 0);
+  assert.equal(ghl.notes.length, 0);
+});
+
+test("a residential lead isn't added to the roll-off flow; the office gets one note", async () => {
+  assert.equal(await importLead(lead({ phone: "+19705550133" }), { dryRun: false }), "residential_lead");
+  assert.deepEqual(ghl.taggedContacts, [{ contactId: "residential", tag: "ai-rolloff-skipped-residential" }]);
+  assert.equal(ghl.notes.length, 1);
+  assert.match(ghl.notes[0]!.body, /already a residential lead/);
+
+});
+
+test("a residential lead the office was already told about gets nothing more", async () => {
+  assert.equal(await importLead(lead({ phone: "+19705550144" }), { dryRun: false }), "residential_lead");
   assert.equal(ghl.taggedContacts.length, 0);
   assert.equal(ghl.notes.length, 0);
 });

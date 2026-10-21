@@ -48,6 +48,7 @@ before(async () => {
       opted_out: base("opted_out", { tags: ["ai-rolloff-eligible", "ai-opted-out"] }),
       booked: base("booked", { tags: ["ai-rolloff-eligible", "ai-rolloff-booked"] }),
       residential_only: base("residential_only", { tags: ["ai-outreach-eligible"] }),
+      both_flows: base("both_flows", { tags: ["ai-outreach-eligible", "ai-rolloff-eligible"] }),
       rep_texted: base("rep_texted"),
       noted_not_tagged: base("noted_not_tagged", { dateAdded: ago(60 * 30) }),
       fu1_due: base("fu1_due", { dateAdded: ago(60 * 30), tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] }),
@@ -191,6 +192,12 @@ test("DND, no phone, Loveland, out-of-state, and already flagged/opted-out/booke
 test("a contact not tagged for roll-off is never touched, even when named directly", async () => {
   assert.equal(await processEntry({ contactId: "residential_only" }, live()), "skipped");
   assert.equal(ghl.sentMessages.length, 0);
+});
+
+test("a residential lead also tagged for roll-off is left to the residential bot", async () => {
+  assert.equal(await processEntry({ contactId: "both_flows" }, live()), "skipped");
+  assert.equal(ghl.sentMessages.length, 0);
+  assert.equal(ghl.notes.length, 0);
 });
 
 test("if a rep has ever texted them, the bot stays out and hands the started booking to the office", async () => {
