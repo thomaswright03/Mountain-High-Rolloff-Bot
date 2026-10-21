@@ -14,7 +14,6 @@ import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStor
 const NOW = new Date("2026-10-10T16:00:00Z"); // 10am Denver
 const NIGHT = new Date("2026-10-11T09:00:00Z"); // 3am Denver
 const ago = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
-const BOOKING_URL = findCompany("Mountain High Disposal")!.rollOff!.bookingUrl;
 
 const base = (id: string, extra: Record<string, any> = {}) => ({
   id,
@@ -47,6 +46,7 @@ before(async () => {
       needs_human: base("needs_human", { tags: ["ai-rolloff-eligible", "ai-needs-human"] }),
       opted_out: base("opted_out", { tags: ["ai-rolloff-eligible", "ai-opted-out"] }),
       booked: base("booked", { tags: ["ai-rolloff-eligible", "ai-rolloff-booked"] }),
+      signed: base("signed", { dateAdded: ago(60 * 30), tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent", "ai-rolloff-confirmed"] }),
       residential_only: base("residential_only", { tags: ["ai-outreach-eligible"] }),
       both_flows: base("both_flows", { tags: ["ai-outreach-eligible", "ai-rolloff-eligible"] }),
       rep_texted: base("rep_texted"),
@@ -112,7 +112,7 @@ beforeEach(() => {
   ghl.removedTags.length = 0;
   ghl.notes.length = 0;
   claude.requests.length = 0;
-  claude.draft = "hey still need that dumpster? you can finish it here [[BOOKING_LINK]]";
+  claude.draft = "hey still need that dumpster? I can book it with you right here";
 });
 
 /** Live options: consent confirmed, MTS says no contracts. */
@@ -183,7 +183,7 @@ test("DRY_RUN never sends and never writes to GHL", async () => {
 });
 
 test("DND, no phone, Loveland, out-of-state, and already flagged/opted-out/booked/finished leads are never texted", async () => {
-  for (const contactId of ["dnd", "no_phone", "loveland", "new_mexico", "needs_human", "opted_out", "booked", "exhausted"]) {
+  for (const contactId of ["dnd", "no_phone", "loveland", "new_mexico", "needs_human", "opted_out", "booked", "signed", "exhausted"]) {
     assert.equal(await processEntry({ contactId }, live()), "skipped", contactId);
   }
   assert.equal(ghl.sentMessages.length, 0);
@@ -221,9 +221,9 @@ test("an old contract (e.g. their existing trash service) doesn't stop the roll-
   assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts })), "sent");
 });
 
-test("next-day follow-up: model-drafted, with the real booking link swapped in, tagged", async () => {
+test("next-day follow-up: model-drafted and tagged", async () => {
   assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "sent");
-  assert.deepEqual(sentTo("fu1_due"), [`hey still need that dumpster? you can finish it here ${BOOKING_URL}`]);
+  assert.deepEqual(sentTo("fu1_due"), ["hey still need that dumpster? I can book it with you right here"]);
   assert.ok(tagsOf("fu1_due").includes("ai-rolloff-followup-1-sent"));
   const request = claude.requests[0]!;
   assert.match(request.system, /hasn't answered our last text in about a day/);

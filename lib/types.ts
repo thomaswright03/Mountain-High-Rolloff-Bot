@@ -19,9 +19,9 @@ export interface CompanyConfig {
 }
 
 export interface RollOffConfig {
-  /** The brand's own online roll-off booking page. The only link the
-   * roll-off bot ever sends, and only by code: the model writes
-   * ROLLOFF_BOOKING_LINK_MARKER and lib/rollOff.ts swaps this URL in. */
+  /** The brand's own online roll-off booking page. The bot stopped texting
+   * it on 2026-10-21 (it books by text now); kept on the outbound link
+   * allow-list (lib/outboundSafety.ts) as our own site. */
   bookingUrl: string;
   /** Where roll-offs are delivered, in plain sentences for the model: the
    * city list, states and any excluded city. No signup or developer notes. */
@@ -48,6 +48,9 @@ export interface RollOffSize {
   pricePerDump: number;
   /** Included weight per dump, in tons. */
   tonLimit: number;
+  /** What going over tonLimit costs, as MTS's own contract agreement words
+   * it. Stated in the booking summary the lead signs. */
+  overweightFee: string;
 }
 
 export interface RollOffContractConfig {
@@ -55,6 +58,10 @@ export interface RollOffContractConfig {
   rentalDays: number;
   notAllowed: string[];
   officePhone: string;
+  /** Dollars, for delivery on a specific day (MTS contract agreement). */
+  specificDayFee: number;
+  /** Dollars, for filling it past the top (MTS contract agreement). */
+  overfillFee: number;
   /** The brand's own standard roll-off rental terms, word for word. Null
    * until the brand provides them: a contract without them is marked as a
    * test in its own text, and lib/contract.ts says so on the page. */

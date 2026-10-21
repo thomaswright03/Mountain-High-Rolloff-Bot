@@ -2,10 +2,10 @@
 
 Texts people who start booking a roll-off dumpster on
 mountainhighdisposal.com (MTS's roll-off booking widget) and don't finish,
-and answers their replies. It never books anything itself, since a booking
-needs a card and an e-signature: it points them back to the booking form
-(the link is put in by code, never written by the model) or hands them to
-the office for a call.
+and books the dumpster with them right in the text thread. It never sends a
+link and never takes a card: the lead signs a code-written summary by
+texting their full name, and the office calls to take the card and enter
+the contract in MTS.
 
 Split out of the Kaizen lead-responder repo (Mountain High's residential
 trash bot) on 2026-10-10. Both bots share the same GHL location and MTS
@@ -29,14 +29,38 @@ login; they're kept apart by GHL tags.
   STOP and similar opt out. Card numbers, legal threats, a request for a
   person and the like go straight to the office (tagged `ai-needs-human` and
   starred). Once a rep texts in a thread, the bot stays out of it.
+- **Booking by text** (Thomas, 2026-10-21, `lib/rollOffBooking.ts`): a
+  separate model call reads what the lead has said so far, and the bot asks
+  for whatever MTS's New Roll-Off Contract form still needs, one question at
+  a time: size, business or personal, where to put it, and whether to call
+  before delivery. Name, address, phone and email come from the contact on
+  file. Material is always MSW and Sales Medium is Door to Door.
+- **The summary** is written by code, never the model: size and price,
+  drop-off window, address, placement, use, the call-before-delivery
+  choice, and every term on the MTS contract's Agreements list (specific
+  day $100, overweight fees by size, overfill $100, street permit, pickup on
+  day 7, not allowed items, payment by phone). It ends by asking for their
+  full name.
+- **The signature:** their reply must be the first and last name on file,
+  right after that exact summary (checked by code; "yes" never signs).
+  What's recorded is read back out of the summary they signed. The contact
+  is tagged `ai-rolloff-confirmed`, gets a JSON booking note
+  (`AI_ROLLOFF_BOOKING_V1:`) and a field-by-field note for the office, and
+  the conversation is starred. MTS won't save a roll-off contract without a
+  card, so the office calls, takes the card and enters it. If anything on
+  file is missing, the office finishes the booking instead.
 - **Facts the bot may state:** `rollOff` in `lib/companies.ts`: sizes, the
-  CEO's per-dump prices and weight limits, the 7-day rental, and what can't
-  go in. Anything else (overweight fees, extra days) goes to the office.
+  CEO's per-dump prices and weight limits, the 7-day rental, what can't go
+  in, and the fees from the MTS contract's Agreements. Anything else (the
+  daily rate past 7 days) goes to the office.
 
 ## Contract signing page
 
 Thomas, 2026-10-10: a page where a lead reads and e-signs their roll-off
-contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
+contract, at `/contract/{id}?t={token}` (`api/contract.ts`). Since
+2026-10-21 the bot no longer texts these links (it books by text instead);
+the page and `npm run contract:create` still work for the office to use by
+hand.
 
 - **The contract** (`lib/contract.ts`) is built by code from the brand's
   config: size, the CEO's per-dump price and weight limit, the 7-day rental,
@@ -56,13 +80,6 @@ contract, at `/contract/{id}?t={token}` (`api/contract.ts`).
 - **After signing**, outside DRY_RUN, the GHL contact gets a note and the
   `ai-rolloff-contract-signed` and `ai-needs-human` tags, so the office
   takes it from there.
-- **Sent by the bot:** once a lead has picked a size, a reply can text them
-  their contract link (`lib/contractLink.ts`). The model only marks where
-  the link goes. A separate call reads the size and day they chose, code
-  checks the size is one Mountain High rents and the day is within 90 days,
-  and the address and phone come from the contact on file. If any of that
-  is missing, or signing isn't set up, nothing is sent and the office takes
-  it. Signing takes no card (Thomas, 2026-10-10): the office calls after.
 - **Trying it by hand:** `npm run contract:create -- --yards=20
   --name="Test Person" --phone=+15555550100
   --address="12 Elm St, Greeley, CO 80631" --date=2026-10-20` prints a
@@ -81,7 +98,8 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
   Changing the password signs everyone out.
 - **What it counts,** per Denver day, each on the day it happened: Reached
   (the bot's first text to a lead), Responded (the lead's first text back),
-  Contracts sent (a signing link made for them) and Signed. A window picker
+  Contracts sent (a booking summary texted, or before 2026-10-21 a signing
+  link) and Signed (a summary signed by name, or a signed contract page). A window picker
   shows the last 7 to 90 days.
 - **Where the numbers come from:** the same private Blob store as the
   contracts (`lib/funnelStore.ts`). `sendRollOffTexts.ts` records a lead's

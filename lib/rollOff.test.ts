@@ -1,17 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ROLLOFF_BOOKING_LINK_MARKER,
   ROLLOFF_FOLLOWUP_1_TAG,
   ROLLOFF_FOLLOWUP_2_TAG,
   UnexpectedMarkerError,
   bookingCheckSince,
   contractsSince,
-  fillBookingLink,
   hasRollOffTag,
   isOutsideServiceStates,
   parseMtsDate,
   planRollOffText,
+  rejectTemplateMarkers,
 } from "./rollOff.js";
 import { buildRollOffColdOpen, buildRollOffReplyPrompt, buildRollOffFollowUp1Prompt } from "./rollOffPrompt.js";
 import { findCompany } from "./companies.js";
@@ -26,9 +25,8 @@ function turn(direction: "inbound" | "outbound", hoursAgo: number, body = "hi"):
   return { direction, body, dateAdded: new Date(NOW.getTime() - hoursAgo * 3_600_000).toISOString() };
 }
 
-test("Mountain High has a roll-off setup, and its booking link passes the outbound link allow-list", () => {
+test("Mountain High has a roll-off setup", () => {
   assert.ok(rollOff, "Mountain High should have a rollOff config");
-  assert.deepEqual(findDisallowedLinks(`finish here ${rollOff.bookingUrl}`), []);
 });
 
 test("hasRollOffTag matches the tag case-insensitively and nothing else", () => {
@@ -59,14 +57,11 @@ test("cold open: a name that isn't a name (e.g. a link typed on the booking form
   }
 });
 
-test("fillBookingLink swaps the marker for the configured booking URL", () => {
-  const out = fillBookingLink(`you can finish it here ${ROLLOFF_BOOKING_LINK_MARKER} :)`, rollOff);
-  assert.equal(out, `you can finish it here ${rollOff.bookingUrl} :)`);
-});
-
-test("fillBookingLink refuses any other template marker, so a raw marker never reaches a lead", () => {
-  assert.throws(() => fillBookingLink("[[SIGNUP_SUMMARY]]", rollOff), UnexpectedMarkerError);
-  assert.throws(() => fillBookingLink(`${ROLLOFF_BOOKING_LINK_MARKER} [[FREE_MONTHS_OFFER]]`, rollOff), UnexpectedMarkerError);
+test("rejectTemplateMarkers passes plain text and refuses any template marker, so a raw marker never reaches a lead", () => {
+  assert.equal(rejectTemplateMarkers("sweet, which size works?"), "sweet, which size works?");
+  assert.throws(() => rejectTemplateMarkers("[[SIGNUP_SUMMARY]]"), UnexpectedMarkerError);
+  assert.throws(() => rejectTemplateMarkers("finish here [[BOOKING_LINK]]"), UnexpectedMarkerError);
+  assert.throws(() => rejectTemplateMarkers("here you go [[CONTRACT_LINK]]"), UnexpectedMarkerError);
 });
 
 test("plan: no cold open while the lead is under 30 minutes old — they may still be on the form", () => {
@@ -132,9 +127,11 @@ test("contractsSince: a contract from on/after the start day (or with an unreada
   assert.deepEqual(contractsSince([contracts[0]!], "2026-10-10"), []);
 });
 
-test("roll-off prompts carry the booking-link marker and the approved facts, and never invite card details", () => {
+test("roll-off prompts book in the thread with the approved facts: no link, never card details", () => {
   for (const prompt of [buildRollOffReplyPrompt(company, rollOff, false), buildRollOffFollowUp1Prompt(company, rollOff)]) {
-    assert.ok(prompt.includes(ROLLOFF_BOOKING_LINK_MARKER));
+    assert.ok(!/\[\[|https?:\/\//.test(prompt), "no link or template marker");
+    assert.ok(prompt.includes("you book it with them right here over text"));
+    assert.ok(prompt.includes("NEVER send, type or mention a link"));
     assert.ok(prompt.includes("Rental period: 7 days."));
     assert.ok(prompt.includes("20 yard: $400, up to 4 tons"));
     assert.ok(prompt.includes("NEVER ask for, accept, or repeat a card number"));
@@ -143,6 +140,13 @@ test("roll-off prompts carry the booking-link marker and the approved facts, and
   }
 });
 
-test("the contract marker is only filled by the reply path: anywhere else the draft is refused", () => {
-  assert.throws(() => fillBookingLink("here you go [[CONTRACT_LINK]]", rollOff), UnexpectedMarkerError);
+test("the reply prompt names the next thing the contract needs, and hands the summary to code", () => {
+  const gathering = buildRollOffReplyPrompt(company, rollOff, false, {
+    kind: "gathering",
+    state: { wantsToBook: true, yards: 20, customerType: null, placement: null, callBeforeDelivery: null },
+    summarySent: false,
+  });
+  assert.match(gathering, /Ask for the next thing the contract needs: whether it's for a business or personal use/);
+  const summaryNext = buildRollOffReplyPrompt(company, rollOff, false, { kind: "summary_next" });
+  assert.match(summaryNext, /Write ONLY one short line/);
 });

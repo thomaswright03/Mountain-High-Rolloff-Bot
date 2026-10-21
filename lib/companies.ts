@@ -77,14 +77,23 @@ const COMPANIES: CompanyConfig[] = [
         - 8 yard: $325, up to 1 ton
         - 20 yard: $400, up to 4 tons
         - 30 yard: $450, up to 5 tons
-        Not approved to quote: what going over the weight limit costs, the
-        price of keeping it past 7 days, or any delivery fee. If they ask,
-        say the office can give them the exact number. The online booking
-        form also shows their total before they pay or sign anything.
-        Booking: online, the form asks for their address, the size, the
-        dates they want, a card and an e-signature. Or the office can book
-        it with them over the phone. You cannot book, schedule or reserve a
-        dumpster yourself, and you cannot confirm a delivery date.
+        Over the weight limit (from the contract's own terms): 6 and 8 yard
+        are $85 extra for anything over 1 ton; 20 and 30 yard are $50 per
+        ton over the limit, and $100 per ton over 10 tons.
+        Delivery: within 24-48 hours, not counting weekends. Delivery on a
+        specific day is $100 extra. Pickup is on day 7 unless they call the
+        office to extend; extra days have a daily fee.
+        Filling it past the top (overfilling) is $100.
+        Street placement needs a permit before delivery.
+        Not approved to quote: the daily rate for extra days, or any other
+        fee not listed here. If they ask, say the office can give them the
+        exact number.
+        Booking: you book it with them right here over text. You ask what
+        the contract still needs (size, business or personal, where to put
+        it, and whether they want a call before delivery), then they get a
+        summary to sign by replying with their full name. You never take a
+        card: the office calls to take payment after they sign. The office
+        can also book it with them over the phone instead.
         Office phone: 970-834-1144.
       `.trim(),
       voiceGuide: `
@@ -99,14 +108,18 @@ const COMPANIES: CompanyConfig[] = [
       `.trim(),
       contract: {
         sizes: [
-          { yards: 6, dimensions: `82" long x 72" wide x 61" tall`, pricePerDump: 275, tonLimit: 1 },
-          { yards: 8, dimensions: `82" long x 80" wide x 73" tall`, pricePerDump: 325, tonLimit: 1 },
-          { yards: 20, dimensions: `16' long x 8' wide x 4'6" tall`, pricePerDump: 400, tonLimit: 4 },
-          { yards: 30, dimensions: `18' long x 8' wide x 6' tall`, pricePerDump: 450, tonLimit: 5 },
+          { yards: 6, dimensions: `82" long x 72" wide x 61" tall`, pricePerDump: 275, tonLimit: 1, overweightFee: "$85 extra for anything over 1 ton" },
+          { yards: 8, dimensions: `82" long x 80" wide x 73" tall`, pricePerDump: 325, tonLimit: 1, overweightFee: "$85 extra for anything over 1 ton" },
+          { yards: 20, dimensions: `16' long x 8' wide x 4'6" tall`, pricePerDump: 400, tonLimit: 4, overweightFee: "$50 per ton over 4 tons, and $100 per ton over 10 tons" },
+          { yards: 30, dimensions: `18' long x 8' wide x 6' tall`, pricePerDump: 450, tonLimit: 5, overweightFee: "$50 per ton over 5 tons, and $100 per ton over 10 tons" },
         ],
         rentalDays: 7,
         notAllowed: ["shingles", "paint", "rock", "dirt", "yard waste", "concrete", "oil", "hazardous materials"],
         officePhone: "970-834-1144",
+        // From the Agreements on MTS's own roll-off contract summary page
+        // (Thomas's screenshot, 2026-10-21).
+        specificDayFee: 100,
+        overfillFee: 100,
         // TODO: Mountain High's own roll-off rental terms (overweight
         // charges, extra days, damage, placement, cancellation). Until
         // then every contract says it's a test.

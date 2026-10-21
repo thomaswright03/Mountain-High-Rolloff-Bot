@@ -6,12 +6,13 @@ import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockG
 import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers/mockClaudeServer.js";
 import { findCompany } from "../lib/companies.js";
 import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
+import { AI_ROLLOFF_BOOKING_NOTE_MARKER, buildBookingSummary, buildSignedReply, parseBookingNote } from "../lib/rollOffBooking.js";
 
 // Replies from roll-off dumpster leads (lib/rollOffReply.ts), through the
 // real webhook handler. Claude and GHL are mocked, so this runs with no API
 // key.
 
-const BOOKING_URL = findCompany("Mountain High Disposal")!.rollOff!.bookingUrl;
+const COMPANY = findCompany("Mountain High Disposal")!;
 const COLD_OPEN = "Hey Sam, this is Max with the AI team at Mountain High Disposal😃. it looks like you started booking a roll-off dumpster with us but didn't get to finish. do you still need one?";
 
 let flag: Awaited<ReturnType<typeof startFlagServer>>;
@@ -49,9 +50,11 @@ before(async () => {
       loveland: contact("loveland", { city: "Loveland" }),
       unknown_brand: contact("unknown_brand", { customFields: [{ id: "field_company", value: "Garden State Bin Cleaning" }] }),
       residential: contact("residential", { tags: ["ai-outreach-eligible"] }),
+      signed: contact("signed", { tags: ["ai-rolloff-eligible", "ai-rolloff-confirmed"] }),
+      no_last: contact("no_last", { lastName: "" }),
     },
     conversationHistories: histories,
-    conversationsByContact: { sam: "conv_sam", both_tags: "conv_both", loveland: "conv_loveland", unknown_brand: "conv_gs", residential: "conv_res" },
+    conversationsByContact: { sam: "conv_sam", both_tags: "conv_both", loveland: "conv_loveland", unknown_brand: "conv_gs", residential: "conv_res", signed: "conv_signed", no_last: "conv_no_last" },
   });
   claude = await startMockClaudeServer();
 
@@ -83,8 +86,9 @@ beforeEach(() => {
   ghl.notes.length = 0;
   ghl.starredConversations.length = 0;
   claude.requests.length = 0;
-  claude.draft = "sweet, you can finish it here [[BOOKING_LINK]] and it'll show your quote before you pay";
+  claude.draft = "sweet, is this for your home or a business?";
   claude.handoff = false;
+  claude.bookingState = { wants_to_book: false, yards: null, customer_type: null, placement: null, call_before_delivery: null };
   flag.set({ active: true });
 });
 
@@ -102,7 +106,7 @@ async function send(contactId: string, conversationId: string, body: string) {
 const tagsOf = (contactId: string) => ghl.taggedContacts.filter((t) => t.contactId === contactId).map((t) => t.tag);
 const draftRequest = () => claude.requests.find((r) => r.system.includes("roll-off dumpster on our website"));
 
-test("a roll-off lead's reply gets the roll-off prompt, and the booking link is the real configured URL", async () => {
+test("a roll-off lead's reply gets the roll-off prompt, with lead data only in the user turn", async () => {
   const text = "yeah I still need a 20 yard for a garage cleanout";
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
 
@@ -111,9 +115,7 @@ test("a roll-off lead's reply gets the roll-off prompt, and the booking link is 
   assert.equal(state.statusCode, 200);
   assert.equal(state.body.flow, "rolloff");
   assert.equal(state.body.action, "sent");
-  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [
-    `sweet, you can finish it here ${BOOKING_URL} and it'll show your quote before you pay`,
-  ]);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), ["sweet, is this for your home or a business?"]);
   const request = draftRequest();
   assert.ok(request, "drafted with the roll-off prompt");
   assert.ok(!request!.system.includes("12 Elm St"), "the address on file is data in the user turn, never the system prompt");
@@ -235,7 +237,7 @@ test("a contact whose company isn't a roll-off brand goes to a human", async () 
   assert.equal(ghl.sentMessages.length, 0);
 });
 
-test("a draft with any template other than the booking link never reaches the lead", async () => {
+test("a draft with a template marker never reaches the lead", async () => {
   const text = "ok sign me up";
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
   claude.draft = "[[SIGNUP_SUMMARY]]";
@@ -323,4 +325,131 @@ test("two webhook deliveries of the same text at once send exactly one reply", a
   const [a, b] = await Promise.all([send("sam", "conv_sam", text), send("sam", "conv_sam", text)]);
   assert.deepEqual([a.body.action, b.body.action].sort(), ["sent", "skipped_duplicate_delivery"]);
   assert.equal(ghl.sentMessages.length, 1);
+});
+
+// Booking in the thread (lib/rollOffBooking.ts).
+
+const FULL = { wants_to_book: true, yards: 20, customer_type: "personal", placement: "driveway, left side", call_before_delivery: true };
+const SAM_ON_FILE = { firstName: "Sam", lastName: "Lee", phone: "+15551112222", address1: "12 Elm St", city: "Greeley", state: "CO", postalCode: "80631" };
+const SUMMARY = buildBookingSummary(COMPANY, SAM_ON_FILE, { yards: 20, customerType: "Personal", placement: "driveway, left side", callBeforeDelivery: true });
+
+test("while gathering, the prompt asks for the next thing the contract needs", async () => {
+  const text = "yeah a 20 yard";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.bookingState = { ...FULL, customer_type: null, placement: null, call_before_delivery: null };
+  const state = await send("sam", "conv_sam", text);
+  assert.equal(state.body.action, "sent");
+  assert.match(draftRequest()!.system, /Ask for the next thing the contract needs: whether it's for a business or personal use/);
+  assert.equal(funnel.files.size, 1, "only 'responded'");
+});
+
+test("once every answer is in, the code-owned summary goes out after the model's lead-in", async () => {
+  const text = "yes call me first";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.bookingState = FULL;
+  claude.draft = "sweet, here's everything";
+  const state = await send("sam", "conv_sam", text);
+  assert.equal(state.body.action, "sent");
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [`sweet, here's everything\n\n${SUMMARY}`]);
+  assert.match(draftRequest()!.system, /Write ONLY one short line/);
+  assert.ok(funnel.files.has("funnel/summary-sent/sam.json"));
+  assert.equal(tagsOf("sam").length, 0, "nothing is booked until they sign");
+});
+
+test("the same summary isn't sent twice while it waits for a signature", async () => {
+  const text = "how heavy can it be?";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", text]]);
+  claude.bookingState = FULL;
+  claude.draft = "up to 4 tons on the 20 yard";
+  await send("sam", "conv_sam", text);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), ["up to 4 tons on the 20 yard"]);
+  assert.match(draftRequest()!.system, /waiting for them to sign/);
+});
+
+test("their full name right after the summary signs it: tagged, noted for the office, starred, fixed reply, no model call", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", "Sam Lee"]]);
+  const state = await send("sam", "conv_sam", "Sam Lee");
+  assert.equal(state.body.action, "signed");
+  assert.equal(claude.requests.length, 0);
+  assert.ok(tagsOf("sam").includes("ai-rolloff-confirmed"));
+  assert.ok(!tagsOf("sam").includes("ai-needs-human"));
+  const note = ghl.notes.find((n) => n.contactId === "sam" && n.body.startsWith(AI_ROLLOFF_BOOKING_NOTE_MARKER));
+  assert.ok(note, "booking note written");
+  const payload = parseBookingNote(note!.body)!;
+  assert.equal(payload.yards, 20);
+  assert.equal(payload.customerType, "Personal");
+  assert.equal(payload.placement, "driveway, left side");
+  assert.equal(payload.callBeforeDelivery, true);
+  assert.equal(payload.signedName, "Sam Lee");
+  assert.equal(payload.address1, "12 Elm St");
+  assert.equal(payload.summary.trimEnd(), `sweet\n\n${SUMMARY}`);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [buildSignedReply("Sam", 20)]);
+  assert.ok(funnel.files.has("funnel/signed/sam.json"));
+  const officeNote = ghl.notes.find((n) => n.contactId === "sam" && n.body.startsWith("ROLL-OFF BOOKED BY TEXT"));
+  assert.ok(officeNote, "the office gets a note to enter the contract from");
+  assert.match(officeNote!.body, /Product: 20 Yard \/ Material: Municipal Solid Waste \(MSW\)/);
+  assert.match(officeNote!.body, /Placement Instructions: driveway, left side/);
+  assert.ok(ghl.starredConversations.includes("conv_sam"), "starred so the office sees it");
+});
+
+test("'yes' after the summary doesn't sign anything", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "yes"]]);
+  claude.bookingState = FULL;
+  claude.draft = "just reply with your full name to lock it in";
+  const state = await send("sam", "conv_sam", "yes");
+  assert.equal(state.body.action, "sent");
+  assert.ok(!tagsOf("sam").includes("ai-rolloff-confirmed"));
+  assert.ok(!ghl.notes.some((n) => n.body.startsWith(AI_ROLLOFF_BOOKING_NOTE_MARKER)));
+});
+
+test("a different name after the summary: the model asks for the name on the booking, kept out of the system prompt", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Pat Morgan"]]);
+  claude.bookingState = FULL;
+  await send("sam", "conv_sam", "Pat Morgan");
+  const request = draftRequest()!;
+  assert.match(request.system, /name_on_booking/);
+  assert.ok(!request.system.includes("Sam Lee"));
+  assert.match(request.messages[0]!.content, /"name_on_booking":"Sam Lee"/);
+  assert.ok(!tagsOf("sam").includes("ai-rolloff-confirmed"));
+});
+
+test("test mode: a signature is drafted and logged, nothing written or sent", async () => {
+  process.env.DRY_RUN = "true";
+  try {
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"], ["outbound", SUMMARY], ["inbound", "sam lee"]]);
+    const state = await send("sam", "conv_sam", "sam lee");
+    assert.equal(state.body.action, "dry_run");
+    assert.equal(state.body.signed, true);
+    assert.equal(ghl.taggedContacts.length, 0);
+    assert.equal(ghl.notes.length, 0);
+    assert.equal(ghl.sentMessages.length, 0);
+  } finally {
+    process.env.DRY_RUN = "false";
+  }
+});
+
+test("a lead who already signed and asks for a change: the office is told, without locking the bot out", async () => {
+  const text = "actually can it be a 30 yard";
+  setHistory("conv_signed", [["outbound", SUMMARY], ["inbound", "Sam Lee"], ["outbound", "thanks"], ["inbound", text]]);
+  claude.draft = "no problem, the office will give you a call to sort that out";
+  claude.handoff = true;
+  const state = await send("signed", "conv_signed", text);
+  assert.equal(state.body.action, "sent");
+  assert.ok(!tagsOf("signed").includes("ai-needs-human"));
+  assert.ok(ghl.starredConversations.includes("conv_signed"));
+  assert.ok(ghl.notes.some((n) => n.contactId === "signed" && /already signed/.test(n.body)));
+  assert.match(draftRequest()!.system, /they already signed their booking/);
+  assert.ok(!claude.requests.some((r) => r.system.includes("pull roll-off booking details")), "no extraction once signed");
+});
+
+test("every answer in but no last name on file: the office finishes it", async () => {
+  const text = "no call needed";
+  setHistory("conv_no_last", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.bookingState = FULL;
+  claude.draft = "the office will give you a quick call to finish it up";
+  const state = await send("no_last", "conv_no_last", text);
+  assert.equal(state.body.action, "sent");
+  assert.ok(tagsOf("no_last").includes("ai-needs-human"));
+  assert.ok(ghl.notes.some((n) => n.contactId === "no_last" && /contract can't be made by text/.test(n.body)));
+  assert.match(draftRequest()!.system, /can't be\nfinished by text|can't be finished by text/);
 });
