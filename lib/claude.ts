@@ -3,13 +3,15 @@ import { logEvent } from "./logging.js";
 import { recordHeartbeat } from "./runStatus.js";
 
 /** The one place the model is named. */
-/** An undated alias: a model update under it can change behaviour. Set
- * CLAUDE_MODEL_ID to pin a dated snapshot (and re-run `npm run eval`). */
+/** The API serves this ID as is, with no dated snapshot behind it to pin
+ * (docs/eval-results.md, 2026-10-22). Re-run `npm run eval` after changing
+ * CLAUDE_MODEL_ID or when Anthropic announces a model update. */
 export const CLAUDE_MODEL = process.env.CLAUDE_MODEL_ID || "claude-sonnet-5";
 
 /** The cheaper model for the tiny yes/no and JSON-extraction calls. Sonnet
- * is not needed for them. Not yet checked against `npm run eval` (needs an
- * API key): set CLAUDE_CHEAP_MODEL_ID=${CLAUDE_MODEL} to put them back on Sonnet. */
+ * is not needed for them: `npm run eval` checks both jobs against known
+ * answers (8/8, 2026-10-22). Set CLAUDE_CHEAP_MODEL_ID=${CLAUDE_MODEL} to
+ * put them back on Sonnet. */
 export const CLAUDE_CHEAP_MODEL = process.env.CLAUDE_CHEAP_MODEL_ID || "claude-haiku-5-5";
 
 /** The stable system prompt as a cacheable block: repeat calls within the
@@ -18,6 +20,10 @@ function cachedSystem(text: string): Anthropic.TextBlockParam[] {
   // cache_control isn't in this installed SDK version's types, but the API accepts it.
   return [{ type: "text", text, cache_control: { type: "ephemeral" } } as Anthropic.TextBlockParam];
 }
+
+/** The exact model IDs the API answered with (a dated snapshot behind each
+ * alias), so `npm run eval` can record what to pin. */
+export const servedModels = new Set<string>();
 
 let client: Anthropic | undefined;
 
@@ -43,9 +49,10 @@ function getClient(): Anthropic {
 async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, purpose = "claude"): Promise<Anthropic.Message> {
   try {
     const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as Anthropic.MessageCreateParamsNonStreaming);
+    servedModels.add(message.model);
     // Token counts per call, so the cost-per-conversation estimate can be checked against real logs.
     const usage = message.usage as { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | undefined;
-    logEvent({ event: "claude_usage", purpose, model: params.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
+    logEvent({ event: "claude_usage", purpose, model: params.model, servedModel: message.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
     await recordHeartbeat("claude", true, `last call: ${purpose}`);
     return message;
   } catch (err: unknown) {
