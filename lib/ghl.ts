@@ -142,6 +142,19 @@ export async function sendSms(contactId: string, message: string): Promise<void>
   if (!res.ok) throw new Error(`sendSms failed: ${res.status} ${await res.text()}`);
 }
 
+/** Emails a GHL contact through the location's own email sender (same
+ * endpoint as sendSms, type "Email"). Used only to send signed roll-off
+ * bookings to the brand's customer team, never to a lead. One attempt, like
+ * sendSms: a retried send could email twice. */
+export async function sendEmail(contactId: string, subject: string, html: string): Promise<void> {
+  const res = await ghlFetch(`${baseUrl()}/conversations/messages`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ type: "Email", contactId, subject, html }),
+  }, 1);
+  if (!res.ok) throw new Error(`sendEmail failed: ${res.status} ${await res.text()}`);
+}
+
 /** For the planned automatic MTS submission (not built yet): finds contacts api/webhook.ts has
  * marked ready for real MTS contract submission. Confirmed live 2026-07-28
  * against the real GHL API: POST /contacts/search with a "tags contains"
@@ -176,6 +189,16 @@ export async function findContactsByTag(tag: string, locationId: string): Promis
   }
 
   return all;
+}
+
+/** The id of the contact GHL already has with this email, if any. Read
+ * only, unlike upsertContact. */
+export async function findContactIdByEmail(locationId: string, email: string): Promise<string | undefined> {
+  const qs = new URLSearchParams({ locationId, email });
+  const res = await ghlFetch(`${baseUrl()}/contacts/search/duplicate?${qs}`, { headers: headers() });
+  if (!res.ok) throw new Error(`findContactIdByEmail failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as any;
+  return data?.contact?.id ?? undefined;
 }
 
 /** Creates the contact, or updates the one GHL already has for this

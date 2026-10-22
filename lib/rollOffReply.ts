@@ -10,6 +10,7 @@ import {
   ROLLOFF_CONFIRMED_TAG,
   buildBookingExtractionPrompt,
   buildBookingPayload,
+  buildBookingEmail,
   buildBookingSummary,
   buildOfficeNote,
   buildSignedReply,
@@ -21,11 +22,12 @@ import {
   parseBookingState,
   parseBookingSummary,
   type ContactOnFile,
+  type RollOffBookingPayload,
 } from "./rollOffBooking.js";
 import { draftReply, detectHandoff, extractJson } from "./claude.js";
 import { safeFirstName } from "./outboundSafety.js";
 import { isExcludedCity } from "./serviceArea.js";
-import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
+import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, sendEmail, findContactIdByEmail, upsertContact, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
 import { logEvent } from "./logging.js";
 import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
@@ -307,7 +309,11 @@ async function recordSignature(input: {
   const payload = buildBookingPayload(onFile, answers, input.signedText, input.sentSummary, new Date());
   const reply = buildSignedReply(safeFirstName(onFile.firstName), answers.yards!);
   logEvent({ event: "rolloff_signed", contactId, draft: reply, payload, dryRun });
-  if (dryRun) return { action: "dry_run", draft: reply, signed: true };
+  if (dryRun) {
+    const email = company.rollOff.bookingEmail ? buildBookingEmail(company, payload, ghlContactUrl(input.inbound.locationId, contactId)) : null;
+    logEvent({ event: "rolloff_booking_email_dry_run", contactId, to: company.rollOff.bookingEmail, subject: email?.subject });
+    return { action: "dry_run", draft: reply, signed: true };
+  }
 
   // Tag and note before the text, so a failed send can't lose the booking.
   // MTS won't save a roll-off contract without a card (Thomas's test,
@@ -318,8 +324,41 @@ async function recordSignature(input: {
   await addNote(contactId, `${AI_ROLLOFF_BOOKING_NOTE_MARKER} ${JSON.stringify(payload)}`);
   await addNote(contactId, buildOfficeNote(payload));
   await tryStarConversation(conversationId, contactId);
+  await emailBooking(company, payload, contactId, input.inbound.locationId);
   await recordFunnelEvent("signed", contactId);
   if (!(await trySend(contactId, reply))) return { action: "signed_dnd", signed: true };
   logEvent({ event: "rolloff_sent", contactId, draft: reply });
   return { action: "signed", draft: reply, signed: true };
+}
+
+function ghlContactUrl(locationId: string, contactId: string): string {
+  return `https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contactId}`;
+}
+
+/** Emails the signed booking to the customer team (Thomas, 2026-10-22),
+ * through GHL: their address is kept as its own GHL contact. Never throws:
+ * the booking is already tagged, noted and starred, so a failed email only
+ * adds a note saying so. */
+async function emailBooking(company: CompanyConfig, payload: RollOffBookingPayload, contactId: string, locationId: string): Promise<void> {
+  const to = company.rollOff.bookingEmail;
+  if (!to) {
+    logEvent({ event: "rolloff_booking_email_not_configured", contactId });
+    return;
+  }
+  try {
+    // An existing contact with that address (Thomas's own, for now) is used
+    // as is: an upsert would rename it.
+    const teamContactId =
+      (await findContactIdByEmail(locationId, to)) ?? (await upsertContact({ locationId, email: to, firstName: company.displayName, lastName: "Customer Team" }));
+    const { subject, html } = buildBookingEmail(company, payload, ghlContactUrl(locationId, contactId));
+    await sendEmail(teamContactId, subject, html);
+    logEvent({ event: "rolloff_booking_emailed", contactId, to });
+  } catch (err: any) {
+    logEvent({ event: "rolloff_booking_email_failed", contactId, error: err.message });
+    try {
+      await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${err.message}). Everything the office needs is in the note above.`);
+    } catch {
+      // The failure is logged; the booking note and star are already there.
+    }
+  }
 }

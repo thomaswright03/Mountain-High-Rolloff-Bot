@@ -52,6 +52,7 @@ before(async () => {
       residential: contact("residential", { tags: ["ai-outreach-eligible"] }),
       signed: contact("signed", { tags: ["ai-rolloff-eligible", "ai-rolloff-confirmed"] }),
       no_last: contact("no_last", { lastName: "" }),
+      thomas: { id: "thomas", firstName: "Thomas", lastName: "Wright", email: "owner@example.com", tags: [] },
     },
     conversationHistories: histories,
     conversationsByContact: { sam: "conv_sam", both_tags: "conv_both", loveland: "conv_loveland", unknown_brand: "conv_gs", residential: "conv_res", signed: "conv_signed", no_last: "conv_no_last" },
@@ -82,6 +83,8 @@ beforeEach(() => {
   funnel = memoryFunnelBackend();
   setFunnelBackendForTests(funnel);
   ghl.sentMessages.length = 0;
+  ghl.sentEmails.length = 0;
+  COMPANY.rollOff.bookingEmail = null;
   ghl.taggedContacts.length = 0;
   ghl.notes.length = 0;
   ghl.starredConversations.length = 0;
@@ -452,4 +455,44 @@ test("every answer in but no last name on file: the office finishes it", async (
   assert.ok(tagsOf("no_last").includes("ai-needs-human"));
   assert.ok(ghl.notes.some((n) => n.contactId === "no_last" && /contract can't be made by text/.test(n.body)));
   assert.match(draftRequest()!.system, /can't be\nfinished by text|can't be finished by text/);
+});
+
+test("a signed booking is emailed to the customer team through GHL, filled in except payment", async () => {
+  COMPANY.rollOff.bookingEmail = "team@example.com";
+  try {
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+    const state = await send("sam", "conv_sam", "Sam Lee");
+    assert.equal(state.body.action, "signed");
+    const upsert = ghl.upserts.find((u) => u.email === "team@example.com");
+    assert.ok(upsert, "the team address is a GHL contact");
+    assert.equal(ghl.sentEmails.length, 1);
+    const email = ghl.sentEmails[0]!;
+    assert.notEqual(email.contactId, "sam", "never emailed to the lead");
+    assert.match(email.subject, /Roll-off booking to enter: Sam Lee, 20 yard, Greeley/);
+    assert.match(email.html, /NEEDED: call the customer to take payment/);
+    assert.match(email.html, /driveway, left side/);
+    assert.deepEqual(ghl.sentMessages.map((m) => m.message), [buildSignedReply("Sam", 20)]);
+  } finally {
+    COMPANY.rollOff.bookingEmail = null;
+  }
+});
+
+test("an existing contact with the team address is emailed as is, never renamed", async () => {
+  COMPANY.rollOff.bookingEmail = "owner@example.com";
+  try {
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+    await send("sam", "conv_sam", "Sam Lee");
+    assert.equal(ghl.upserts.filter((u) => u.email === "owner@example.com").length, 0);
+    assert.deepEqual(ghl.sentEmails.map((e) => e.contactId), ["thomas"]);
+  } finally {
+    COMPANY.rollOff.bookingEmail = null;
+  }
+});
+
+test("with no team address set, a signed booking still gets its note and star, just no email", async () => {
+  COMPANY.rollOff.bookingEmail = null;
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+  await send("sam", "conv_sam", "Sam Lee");
+  assert.equal(ghl.sentEmails.length, 0);
+  assert.ok(ghl.notes.some((n) => n.body.startsWith("ROLL-OFF BOOKED BY TEXT")));
 });

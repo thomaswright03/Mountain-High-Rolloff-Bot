@@ -23,6 +23,11 @@ export interface RollOffConfig {
    * it on 2026-10-21 (it books by text now); kept on the outbound link
    * allow-list (lib/outboundSafety.ts) as our own site. */
   bookingUrl: string;
+  /** The brand's customer team. Every booking a lead signs by text is
+   * emailed here, filled in except payment, for them to call and take the
+   * card (Thomas, 2026-10-22). Null until the address is given: bookings
+   * still get the GHL note and star, just no email. */
+  bookingEmail: string | null;
   /** Where roll-offs are delivered, in plain sentences for the model: the
    * city list, states and any excluded city. No signup or developer notes. */
   serviceArea: string;

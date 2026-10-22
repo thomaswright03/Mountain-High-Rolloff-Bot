@@ -31,6 +31,7 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 ## Booking by text (2026-10-21)
 - Thomas: no links; book in the thread like residential. `lib/rollOffBooking.ts` (answers, summary, signature, notes), `lib/rollOffReply.ts` (flow), `lib/rollOffPrompt.ts` (modes). The e-sign link path (`lib/contractLink.ts`) is gone; `api/contract.ts` stays for manual use.
 - MTS roll-off form requires a card (Thomas's test), so no automatic MTS submit: on signing the office gets a note + star and enters it. Summary covers all 7 MTS Agreements. Delivery Type is always Default Delivery.
+- 2026-10-22: each signed booking is emailed via GHL (`sendEmail`, type Email) to `rollOff.bookingEmail` (t@thomasewright.com for now) with every MTS field but the card. Recipient contact found by email first so it isn't renamed.
 
 ## Not done / open
 - Low 13: a stuck `ROLLOFF_PROCESSING_TAG` is still only logged.
