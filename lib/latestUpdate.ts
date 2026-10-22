@@ -9,6 +9,17 @@ export interface UpdateEntry {
 
 export const LATEST_UPDATES: UpdateEntry[] = [
   {
+    date: "2026-10-22 (fourth round)",
+    frontend: [
+      "/admin: the \"Deployed version\" row now shows when the running version went live, in Denver time.",
+      "/dashboard: the sign-in line now says \"bookings signed\" instead of \"contracts signed\", since bookings are signed by text.",
+    ],
+    changes: [
+      "Model check re-run on the flat $85 fix (docs/eval-results.md): replies 12/12, booking answers and hand-off 8/8. The weight limit reply now says \"a flat $85 extra, not per ton\".",
+      "When a scheduled text fails, the note left for the office is now plain language asking them to reach the person; the technical error stays in the logs.",
+    ],
+  },
+  {
     date: "2026-10-22 (third round)",
     frontend: [
       "/admin: row names and details are now in plain business language, each saying what to do; technical names are no longer in the main text.",
