@@ -13,17 +13,8 @@ Texts people who start booking a roll-off dumpster on mountainhighdisposal.com b
 - Safety: kill switch (fails closed when live), DRY_RUN (repo variable), `ROLLOFF_TCPA_CONSENT_CONFIRMED=false` in `lib/rollOff.ts`.
 - Blob folders: `lib/blobNamespace.ts`; workflows set `BLOB_NAMESPACE=production` so job and Vercel share `status/`, `pending/`, `contracts/`.
 
-## Round 1 (53 -> 58) done
-Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; contract notice retry; test-mode gating; CI.
-
-## Round 2 (fix of the 58/100 grade), done in code
-- High 1: shared Blob namespace (tests in `lib/blobNamespace.test.ts`).
-- High 2: backup job + restore script (`lib/backup.ts`, `scripts/backupBlobs.ts`, `restoreBlobs.ts`), "Latest backup" row on /admin, README restore steps. Restore only tested against an in-memory store, not the real one.
-- High 3: stale-run => `overall: down` after 60 min (tested); README "Who gets alerted" names the path (Hitta on failure, CAO reads status.json for silence).
-- Medium 4-6: lowercase JSON; kill-switch pause shows Warning on "Scheduled texts"; test-mode row reports real effect; clean `rollOff.serviceArea` in the prompt.
-- Medium 7: `npm run eval` + `lib/draftChecks.ts` written; ran live 2026-10-22 (docs/eval-results.md). Model still the alias; `CLAUDE_MODEL_ID` env pins a snapshot.
-- Medium 8: per-message reply lock (`lib/replyLock.ts`, Blob `reply-locks/`), concurrent-delivery test.
-- Low 10-12, 14 fixed (README, stale refs, CSP style, log retention documented).
+## Earlier rounds
+Kill switch, status page, backups, reply lock, eval, prompt caching, booking by text: see git history and docs/eval-results.md.
 
 ## Shared number with the residential bot (2026-10-21)
 - Both bots send from the same GHL location with no `fromNumber`, so both use the location's default number. Kaizen has no idea roll-off tags exist, so this bot steps aside for anyone tagged `ai-outreach-eligible`: not imported (one note + `ai-rolloff-skipped-residential`), not texted, replies skipped.
