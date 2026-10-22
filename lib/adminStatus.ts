@@ -44,7 +44,10 @@ export interface StatusInputs {
   pending: { count: number; oldest: string | null } | null;
 }
 
-const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup"];
+/** Rows that only change when a lead acts: no record yet is Unknown, but not a reason to warn. */
+const EVENT_DRIVEN = new Set(["Bookings signed by text", "Booking email to the office"]);
+
+const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup", "booking-signed", "booking-email"];
 
 /** The backup job runs daily; later than this is stale. */
 const BACKUP_WARN_HOURS = 30;
@@ -131,24 +134,20 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   if (replies.status === "Warning" && beats.replies?.ok) replies.status = "OK";
   rows.push(replies);
 
-  const missing = ["CONTRACT_SIGNING_SECRET", "PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"].filter((k) => !env[k]);
-  const pending = i.pending;
-  let signable: FunctionStatus;
-  if (missing.length > 0) {
-    signable = { tier: "Important", name: "Contracts signable", status: "Down", last_checked: checked, last_success: null, next_expected_run: null, detail: `Not set up: ${missing.join(", ")} missing.` };
-  } else if (!i.blob.ok) {
-    signable = { tier: "Important", name: "Contracts signable", status: "Down", last_checked: checked, last_success: null, next_expected_run: null, detail: `Set up, but the Blob store didn't answer: ${i.blob.detail}` };
-  } else if (pending && pending.count > 0) {
-    signable = { tier: "Important", name: "Contracts signable", status: "Warning", last_checked: checked, last_success: checked, next_expected_run: null, detail: `Signing works, but ${pending.count} signed contract(s) haven't reached the office in GHL yet (oldest ${pending.oldest ?? "unknown"}). The scheduled job keeps retrying.` };
-  } else if (pending === null) {
-    signable = { tier: "Important", name: "Contracts signable", status: "Warning", last_checked: checked, last_success: null, next_expected_run: null, detail: "Set up, but the list of contracts waiting for the office couldn't be read." };
-  } else {
-    signable = { tier: "Important", name: "Contracts signable", status: "OK", last_checked: checked, last_success: checked, next_expected_run: null, detail: "Signing settings are in place, the Blob store answers and no signed contract is waiting for the office." };
-  }
-  rows.push(signable);
+  // Booking by text: a lead signs by replying with their full name. Signing
+  // only happens when a lead does it, so a quiet week isn't a fault; a failed
+  // signing is.
+  const signed = serviceRow("Important", "Bookings signed by text", beats["booking-signed"] ?? null, now, "booking by text");
+  if (signed.status === "Warning" && beats["booking-signed"]?.ok) signed.status = "OK";
+  if (signed.status === "Unknown") signed.detail = "No signing recorded yet (none has happened since status recording started).";
+  rows.push(signed);
 
   // Key
   rows.push({ tier: "Key", name: "GHL API", status: i.ghl.status, last_checked: i.ghl.status === "Unknown" ? null : checked, last_success: i.ghl.status === "OK" ? checked : null, next_expected_run: null, detail: i.ghl.detail });
+  // The signed booking goes to the customer team by email through GHL.
+  const bookingEmail = serviceRow("Key", "Booking email to the office", beats["booking-email"] ?? null, now, "the booking email");
+  if (bookingEmail.status === "Warning" && beats["booking-email"]?.ok) bookingEmail.status = "OK";
+  rows.push(bookingEmail);
   rows.push(serviceRow("Key", "Claude API", beats.claude ?? null, now, "Claude"));
   rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
   rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
@@ -177,6 +176,16 @@ export function buildStatus(i: StatusInputs): AdminStatus {
     next_expected_run: null,
     detail: `Test mode (DRY_RUN) is ${testMode ? "ON: nothing is texted, and nothing is written to GHL" : "OFF"}. TCPA consent gate: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "confirmed" : "NOT confirmed, so no scheduled text of any kind goes out"}. ${blocked ? "The bot is not sending." : "The bot can send."}`,
   });
+  // Not used by the booking-by-text flow; kept for contracts made by hand
+  // (README: Manual contract signing). A fault here never takes overall down.
+  const missing = ["CONTRACT_SIGNING_SECRET", "PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"].filter((k) => !env[k]);
+  const pending = i.pending;
+  const manual = { tier: "Basic" as Tier, name: "Manual contract signing page", last_checked: checked, next_expected_run: null };
+  if (missing.length > 0) rows.push({ ...manual, status: "Unknown", last_success: null, detail: `Not set up (${missing.join(", ")} missing). Only needed for contracts made by hand; booking by text doesn't use it.` });
+  else if (!i.blob.ok) rows.push({ ...manual, status: "Warning", last_success: null, detail: `Set up, but the Blob store didn't answer: ${i.blob.detail}` });
+  else if (pending && pending.count > 0) rows.push({ ...manual, status: "Warning", last_success: checked, detail: `${pending.count} signed contract(s) haven't reached the office in GHL yet (oldest ${pending.oldest ?? "unknown"}). The scheduled job keeps retrying.` });
+  else if (pending === null) rows.push({ ...manual, status: "Warning", last_success: null, detail: "Set up, but the list of contracts waiting for the office couldn't be read." });
+  else rows.push({ ...manual, status: "OK", last_success: checked, detail: "Signing settings are in place and no hand-made contract is waiting for the office." });
   const sha = env.VERCEL_GIT_COMMIT_SHA;
   rows.push({
     tier: "Basic",
@@ -195,7 +204,7 @@ export function buildStatus(i: StatusInputs): AdminStatus {
       ? "Warning"
       : rows.every((r) => r.status === "Unknown")
         ? "Unknown"
-        : rows.some((r) => r.status === "Unknown" && r.tier !== "Basic")
+        : rows.some((r) => r.status === "Unknown" && r.tier !== "Basic" && !EVENT_DRIVEN.has(r.name))
           ? "Warning"
           : "OK";
   return { product: "Mountain High Roll-Off Bot", checked_at: checked, overall, functions: rows };

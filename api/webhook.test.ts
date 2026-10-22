@@ -85,6 +85,8 @@ beforeEach(() => {
   ghl.sentMessages.length = 0;
   ghl.sentEmails.length = 0;
   COMPANY.rollOff.bookingEmail = null;
+  ghl.failures.failNotes = 0;
+  ghl.failures.failEmail = false;
   ghl.taggedContacts.length = 0;
   ghl.notes.length = 0;
   ghl.starredConversations.length = 0;
@@ -495,4 +497,41 @@ test("with no team address set, a signed booking still gets its note and star, j
   await send("sam", "conv_sam", "Sam Lee");
   assert.equal(ghl.sentEmails.length, 0);
   assert.ok(ghl.notes.some((n) => n.body.startsWith("ROLL-OFF BOOKED BY TEXT")));
+});
+
+test("a failing booking email never undoes the signing: tagged, noted, starred, texted, and a failure note added", async () => {
+  COMPANY.rollOff.bookingEmail = "team@example.com";
+  ghl.failures.failEmail = true;
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+  const state = await send("sam", "conv_sam", "Sam Lee");
+  assert.equal(state.statusCode, 200);
+  assert.equal(state.body.action, "signed");
+  assert.ok(tagsOf("sam").includes("ai-rolloff-confirmed"));
+  assert.ok(ghl.notes.some((n) => n.body.startsWith(AI_ROLLOFF_BOOKING_NOTE_MARKER)));
+  assert.ok(ghl.notes.some((n) => n.body.startsWith("ROLL-OFF BOOKED BY TEXT")));
+  assert.ok(ghl.starredConversations.includes("conv_sam"));
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [buildSignedReply("Sam", 20)]);
+  assert.equal(ghl.sentEmails.length, 0);
+  assert.ok(ghl.notes.some((n) => n.contactId === "sam" && /couldn't email this roll-off booking/.test(n.body)));
+});
+
+test("a note that fails mid-signing is retried: each note once, one email, tag only after the notes", async () => {
+  COMPANY.rollOff.bookingEmail = "team@example.com";
+  ghl.failures.failNotes = 1; // the booking note's first try fails
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+  const state = await send("sam", "conv_sam", "Sam Lee");
+  assert.equal(state.body.action, "signed");
+  assert.equal(ghl.notes.filter((n) => n.contactId === "sam" && n.body.startsWith(AI_ROLLOFF_BOOKING_NOTE_MARKER)).length, 1);
+  assert.equal(ghl.notes.filter((n) => n.contactId === "sam" && n.body.startsWith("ROLL-OFF BOOKED BY TEXT")).length, 1);
+  assert.equal(tagsOf("sam").filter((t) => t === "ai-rolloff-confirmed").length, 1);
+  assert.equal(ghl.sentEmails.length, 1);
+});
+
+test("if signing can't be recorded at all, the lead is not marked signed and not texted", async () => {
+  ghl.failures.failNotes = 10;
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "Sam Lee"]]);
+  const state = await send("sam", "conv_sam", "Sam Lee");
+  assert.equal(state.statusCode, 500);
+  assert.ok(!tagsOf("sam").includes("ai-rolloff-confirmed"));
+  assert.equal(ghl.sentMessages.length, 0);
 });

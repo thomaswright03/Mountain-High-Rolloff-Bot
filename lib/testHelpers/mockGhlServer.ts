@@ -12,6 +12,8 @@ export interface MockGhlServer {
   readConversations: string[];
   /** Every /contacts/upsert body, in order. */
   upserts: Array<Record<string, any>>;
+  /** Failure injection: the next `failNotes` note POSTs answer 400; every email send answers 500 while `failEmail` is true. */
+  failures: { failNotes: number; failEmail: boolean };
   close: () => Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
   const starredConversations: string[] = [];
   const readConversations: string[] = [];
   const upserts: Array<Record<string, any>> = [];
+  const failures = { failNotes: 0, failEmail: false };
 
   const server = http.createServer((req, res) => {
     let body = "";
@@ -92,6 +95,11 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
 
       if (method === "POST" && url === "/conversations/messages") {
         const parsed = JSON.parse(body);
+        if (parsed.type === "Email" && failures.failEmail) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "email down" }));
+          return;
+        }
         if (parsed.type === "Email") sentEmails.push({ contactId: parsed.contactId, subject: parsed.subject, html: parsed.html });
         else sentMessages.push({ contactId: parsed.contactId, message: parsed.message });
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -122,6 +130,12 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
 
       const noteMatch = /^\/contacts\/([^/]+)\/notes$/.exec(url);
       if (method === "POST" && noteMatch) {
+        if (failures.failNotes > 0) {
+          failures.failNotes--;
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "note failed" }));
+          return;
+        }
         const parsed = JSON.parse(body);
         notes.push({ contactId: noteMatch[1]!, body: parsed.body });
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -186,6 +200,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
         starredConversations,
         readConversations,
         upserts,
+        failures,
         close: () => new Promise((r) => server.close(() => r())),
       });
     });

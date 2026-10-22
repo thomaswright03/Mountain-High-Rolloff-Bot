@@ -27,8 +27,9 @@ import {
 import { draftReply, detectHandoff, extractJson } from "./claude.js";
 import { safeFirstName } from "./outboundSafety.js";
 import { isExcludedCity } from "./serviceArea.js";
-import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, sendEmail, findContactIdByEmail, upsertContact, addTag, addNote, starConversation, markConversationRead } from "./ghl.js";
+import { extractCompanyValue, findConversationId, getConversationHistory, sendSms, sendEmail, findContactIdByEmail, upsertContact, addTag, addNote, getNotes, starConversation, markConversationRead } from "./ghl.js";
 import { logEvent } from "./logging.js";
+import { recordHeartbeat } from "./runStatus.js";
 import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
 
@@ -315,20 +316,51 @@ async function recordSignature(input: {
     return { action: "dry_run", draft: reply, signed: true };
   }
 
-  // Tag and note before the text, so a failed send can't lose the booking.
+  // Notes first, tag after: a signing that dies half-way is never marked
+  // signed, so it can be re-run. Each step skips what's already written, so
+  // a retry produces each note once. Tagged and noted before the text, so a
+  // failed send can't lose the booking.
   // MTS won't save a roll-off contract without a card (Thomas's test,
   // 2026-10-21), and a card never goes over text, so the office takes the
   // card on a call and enters the contract from this note. Starred so they
   // see it; no ai-needs-human, so the bot can still answer their texts.
-  await addTag(contactId, ROLLOFF_CONFIRMED_TAG);
-  await addNote(contactId, `${AI_ROLLOFF_BOOKING_NOTE_MARKER} ${JSON.stringify(payload)}`);
-  await addNote(contactId, buildOfficeNote(payload));
-  await tryStarConversation(conversationId, contactId);
+  try {
+    await withRetries(() => writeSigningRecords(contactId, conversationId, payload));
+  } catch (err: any) {
+    await recordHeartbeat("booking-signed", false, `the last signing could not be fully recorded in GHL: ${err.message}`);
+    throw err;
+  }
+  await recordHeartbeat("booking-signed", true, "the last signing was tagged, noted and starred for the office");
   await emailBooking(company, payload, contactId, input.inbound.locationId);
   await recordFunnelEvent("signed", contactId);
   if (!(await trySend(contactId, reply))) return { action: "signed_dnd", signed: true };
   logEvent({ event: "rolloff_sent", contactId, draft: reply });
   return { action: "signed", draft: reply, signed: true };
+}
+
+const SIGNING_ATTEMPTS = 3;
+
+async function withRetries(step: () => Promise<void>): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await step();
+    } catch (err: any) {
+      logEvent({ event: "rolloff_signing_step_failed", attempt, error: err.message });
+      if (attempt >= SIGNING_ATTEMPTS) throw err;
+    }
+  }
+}
+
+/** Booking note, office note, confirmed tag, star: in that order, each
+ * skipped if a previous attempt already got it done. */
+async function writeSigningRecords(contactId: string, conversationId: string, payload: RollOffBookingPayload): Promise<void> {
+  const existing = (await getNotes(contactId)).map((n) => n.body);
+  const bookingNote = `${AI_ROLLOFF_BOOKING_NOTE_MARKER} ${JSON.stringify(payload)}`;
+  if (!existing.some((b) => b === bookingNote)) await addNote(contactId, bookingNote);
+  const officeNote = buildOfficeNote(payload);
+  if (!existing.some((b) => b === officeNote)) await addNote(contactId, officeNote);
+  await addTag(contactId, ROLLOFF_CONFIRMED_TAG);
+  await tryStarConversation(conversationId, contactId);
 }
 
 function ghlContactUrl(locationId: string, contactId: string): string {
@@ -353,8 +385,10 @@ async function emailBooking(company: CompanyConfig, payload: RollOffBookingPaylo
     const { subject, html } = buildBookingEmail(company, payload, ghlContactUrl(locationId, contactId));
     await sendEmail(teamContactId, subject, html);
     logEvent({ event: "rolloff_booking_emailed", contactId, to });
+    await recordHeartbeat("booking-email", true, `the last booking was emailed to ${to}`);
   } catch (err: any) {
     logEvent({ event: "rolloff_booking_email_failed", contactId, error: err.message });
+    await recordHeartbeat("booking-email", false, `the last booking email to ${to} failed: ${err.message}`);
     try {
       await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${err.message}). Everything the office needs is in the note above.`);
     } catch {

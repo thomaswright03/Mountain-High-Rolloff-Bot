@@ -45,8 +45,9 @@ const COMPANIES: CompanyConfig[] = [
     // for people who start the online roll-off booking and don't finish.
     // Every fact below is from mountainhighdisposal.com/rolloff/ and
     // /temp-roll-off--signup/ as of 2026-10-10, except the prices, which
-    // are the CEO's (relayed by Thomas, 2026-10-10). Still not approved:
-    // the overweight fee, extra days and any delivery fee.
+    // are the CEO's (relayed by Thomas, 2026-10-10). Overweight fees are
+    // quoted only from the contract's terms (below). Still not approved:
+    // the delivery fee and the extra-day rate.
     rollOff: {
       // The booking form itself is MTS's RollOffSignupWidget, embedded on
       // this page — the same MTS system the residential signup uses.

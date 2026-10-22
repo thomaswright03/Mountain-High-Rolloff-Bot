@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vercel dev",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "tsx --test lib/*.test.ts api/*.test.ts mts-sync/*.test.ts",
     "rolloff:send": "tsx mts-sync/sendRollOffTexts.ts",
     "rolloff:import": "tsx mts-sync/importRollOffLeads.ts",
@@ -19,11 +20,14 @@
     "@vercel/blob": "^2.8.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^20.14.0",
     "@vercel/node": "^3.2.0",
     "dotenv": "^16.4.5",
+    "eslint": "^9.39.5",
     "playwright": "~1.62.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.72.0"
   }
 }

@@ -50,7 +50,7 @@ test("signed out, the page is only a password form, and the numbers are refused"
   assert.equal(r.status, 200);
   assert.match(r.body, /type="password"/);
   assert.match(r.body, /method="post" action="\/dashboard"/);
-  assert.ok(!r.body.includes("Contracts sent"));
+  assert.ok(!r.body.includes("Booking summaries sent"));
   assert.match(r.headers["content-security-policy"]!, /script-src 'nonce-/);
   assert.equal(r.headers["cache-control"], "no-store");
 
@@ -70,7 +70,7 @@ test("the right password signs you in with a cookie, and the page then shows the
   const r = await call(page, "GET", { cookie });
   assert.equal(r.status, 200);
   assert.match(r.body, /Roll-off dumpster bot/);
-  assert.match(r.body, /Contracts sent/);
+  assert.match(r.body, /Booking summaries sent/);
   assert.match(r.body, /Sign out/);
   assert.ok(!r.body.includes(PASSWORD), "the password is never echoed into the page");
 });

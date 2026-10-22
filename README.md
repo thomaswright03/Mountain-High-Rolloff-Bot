@@ -67,8 +67,12 @@ login; they're kept apart by GHL tags.
 Thomas, 2026-10-10: a page where a lead reads and e-signs their roll-off
 contract, at `/contract/{id}?t={token}` (`api/contract.ts`). Since
 2026-10-21 the bot no longer texts these links (it books by text instead);
-the page and `npm run contract:create` still work for the office to use by
-hand.
+the page and `npm run contract:create` still work for a manual contract:
+**who:** whoever Thomas names at Mountain High, from a machine with the Vercel
+and GHL env vars set; **when:** only if a lead needs a written contract
+instead of booking by text (none is expected). On /admin this is the Basic row
+"Manual contract signing page"; it never drives the overall status. The
+"TEST CONTRACT" banner stays until the standard terms are supplied.
 
 - **The contract** (`lib/contract.ts`) is built by code from the brand's
   config: size, the CEO's per-dump price and weight limit, the 7-day rental,
@@ -106,8 +110,8 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
   Changing the password signs everyone out.
 - **What it counts,** per Denver day, each on the day it happened: Reached
   (the bot's first text to a lead), Responded (the lead's first text back),
-  Contracts sent (a booking summary texted, or before 2026-10-21 a signing
-  link) and Signed (a summary signed by name, or a signed contract page). A window picker
+  Booking summaries sent (a booking summary texted, or before 2026-10-21 a signing
+  link) and Bookings signed (a summary signed by name, or a signed contract page). A window picker
   shows the last 7 to 90 days.
 - **Where the numbers come from:** the same private Blob store as the
   contracts (`lib/funnelStore.ts`). `sendRollOffTexts.ts` records a lead's
@@ -189,9 +193,12 @@ date promises, no "booked", admits being an AI) and writes
 `docs/eval-results.md`. Without the key locally, run the **Model check**
 workflow from the Actions tab (`.github/workflows/eval-drafts.yml`): it
 uses the repo's `ANTHROPIC_API_KEY` secret and prints the results to the
-run log. Re-run after any prompt or model change. The model
-is the alias `claude-sonnet-5`; set `CLAUDE_MODEL_ID` to a dated snapshot to
-pin it.
+run log and uploads `docs/eval-results.md` as an artifact. **After every
+prompt or model change, re-run it and commit that file** (date, model, pass or
+fail per case) so a regression can be traced. The model default is the alias
+`claude-sonnet-5` (`lib/claude.ts`); once the first eval run is committed, set
+`CLAUDE_MODEL_ID` in Vercel and GitHub to the dated snapshot it was run on, and
+change the default to that ID.
 
 ## Logs
 

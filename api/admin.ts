@@ -112,6 +112,14 @@ input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid 
 label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 6px; }
 .err { color: var(--down); }
 .signin { max-width: 380px; margin: 48px auto; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body > * { animation: rise .24s ease-out both; }
+tbody tr, button, input { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease; }
+tbody tr:hover { background: rgba(63,102,82,.08); }
+button:hover { opacity: .92; } button:active { transform: scale(.98); }
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,102,82,.2); }
+.badge { transition: color .2s ease, background-color .2s ease; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } }
 `;
 

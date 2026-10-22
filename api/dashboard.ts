@@ -244,6 +244,14 @@ function dashboardPage(nonce: string): string {
   th:first-child, td:first-child { text-align: left; white-space: nowrap; }
   th { font-weight: 600; color: var(--ink-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: bottom; }
   tbody tr { transition: background-color 0.15s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .card, .totals > div, .notices li { animation: rise 0.24s ease-out both; }
+  .totals > div:nth-child(2) { animation-delay: 0.04s; } .totals > div:nth-child(3) { animation-delay: 0.08s; } .totals > div:nth-child(4) { animation-delay: 0.12s; }
+  button, input, select { transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+  button:active { transform: scale(0.98); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .bar { transition: width 0.3s ease; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   tbody tr:hover { background: var(--accent-soft); }
   tbody tr:last-child td { border-bottom: none; }
   td.zero { color: var(--ink-dim); }
@@ -285,7 +293,7 @@ function dashboardPage(nonce: string): string {
     <p class="empty" id="empty" hidden></p>
     <table id="table" hidden>
       <thead>
-        <tr><th>Date</th><th>Reached</th><th>Responded</th><th>Contracts sent</th><th>Signed</th></tr>
+        <tr><th>Date</th><th>Reached</th><th>Responded</th><th>Booking summaries sent</th><th>Bookings signed</th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
@@ -296,8 +304,8 @@ function dashboardPage(nonce: string): string {
   var COLUMNS = [
     ["reached", "Reached"],
     ["responded", "Responded"],
-    ["contractsSent", "Contracts sent"],
-    ["contractsSigned", "Contracts signed"]
+    ["contractsSent", "Booking summaries sent"],
+    ["contractsSigned", "Bookings signed"]
   ];
   var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var select = document.getElementById("days");

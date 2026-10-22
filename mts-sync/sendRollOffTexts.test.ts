@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
 import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers/mockClaudeServer.js";
 import { AI_ROLLOFF_COLD_OPEN_NOTE_MARKER } from "../lib/prompt.js";
-import { findCompany } from "../lib/companies.js";
 import type { MtsContractRow } from "../lib/rollOff.js";
 import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
 

@@ -61,7 +61,7 @@ test("signed in, /admin shows the three groups in order, the rows, and the Lates
   const html: string = r.body;
   const at = (s: string) => html.indexOf(s);
   assert.ok(at("<h2>Important</h2>") > 0 && at("<h2>Important</h2>") < at("<h2>Key</h2>") && at("<h2>Key</h2>") < at("<h2>Basic</h2>") && at("<h2>Basic</h2>") < at("Latest Update"));
-  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Contracts signable", "GHL API", "Claude API", "MTS login", "Blob store", "GitHub Actions job", "Kill switch", "Deployed version"]) {
+  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "GHL API", "Claude API", "MTS login", "Blob store", "GitHub Actions job", "Kill switch", "Deployed version"]) {
     assert.ok(html.includes(name), name);
   }
   assert.ok(at("Frontend changes") > at("Latest Update") && at("Frontend changes") < at("Other changes"));
@@ -123,12 +123,25 @@ test("everything healthy is OK; stale or missing is never OK", () => {
 
 test("a signed contract still waiting for the office is a visible warning; a paused switch is shown", () => {
   const s = buildStatus(inputs({ pending: { count: 2, oldest: "2026-10-20T10:00:00Z" }, killswitch: { active: false } }));
-  const signable = s.functions.find((f) => f.name === "Contracts signable")!;
+  const signable = s.functions.find((f) => f.name === "Manual contract signing page")!;
   assert.equal(signable.status, "Warning");
   assert.match(signable.detail, /2 signed contract/);
   assert.match(s.functions.find((f) => f.name === "Kill switch")!.detail, /PAUSED/);
   const missing = buildStatus(inputs({ env: { DRY_RUN: "true" } }));
-  assert.equal(missing.functions.find((f) => f.name === "Contracts signable")!.status, "Down");
+  assert.equal(missing.functions.find((f) => f.name === "Manual contract signing page")!.status, "Unknown");
+});
+
+test("booking by text and its email have their own rows; failures show Down; missing link-signing secrets don't take overall down", () => {
+  const base = inputs();
+  const beat = (ok: boolean, detail: string) => ({ name: "x", ok, lastRun: "2026-10-20T17:50:00Z", lastSuccess: ok ? "2026-10-20T17:50:00Z" : null, detail });
+  const bad = buildStatus(inputs({ beats: { ...base.beats, "booking-email": beat(false, "email down"), "booking-signed": beat(false, "note failed") } }));
+  assert.equal(bad.functions.find((f) => f.name === "Booking email to the office")!.status, "Down");
+  assert.equal(bad.functions.find((f) => f.name === "Bookings signed by text")!.status, "Down");
+  assert.equal(bad.overall, "Down");
+  const good = buildStatus(inputs({ env: { DRY_RUN: "true", KILLSWITCH_URL: "https://flag", BLOB_READ_WRITE_TOKEN: "t" }, beats: { ...base.beats, "booking-email": beat(true, "sent"), "booking-signed": beat(true, "signed") } }));
+  assert.equal(good.functions.find((f) => f.name === "Bookings signed by text")!.status, "OK");
+  assert.equal(good.functions.find((f) => f.name === "Booking email to the office")!.status, "OK");
+  assert.notEqual(good.overall, "Down");
 });
 
 test("a run paused by the kill switch, or an unreachable flag with test mode off, is not shown as OK", () => {
