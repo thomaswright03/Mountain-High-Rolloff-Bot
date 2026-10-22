@@ -51,6 +51,9 @@ const COMPANIES: CompanyConfig[] = [
       // The booking form itself is MTS's RollOffSignupWidget, embedded on
       // this page — the same MTS system the residential signup uses.
       bookingUrl: "https://mountainhighdisposal.com/temp-roll-off--signup/",
+      // Thomas, 2026-10-22: his own address for now, until the customer
+      // team's is set up.
+      bookingEmail: "t@thomasewright.com",
       serviceArea: `
         Mountain High delivers roll-off dumpsters in Colorado only. Cities
         served: Ault, Aurora, Berthoud, Centennial, Cherry Hills Village,

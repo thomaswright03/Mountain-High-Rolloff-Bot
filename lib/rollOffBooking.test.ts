@@ -4,6 +4,7 @@ import { findCompany } from "./companies.js";
 import {
   AI_ROLLOFF_BOOKING_NOTE_MARKER,
   SUMMARY_SIGN_LINE,
+  buildBookingEmail,
   buildBookingPayload,
   buildBookingSummary,
   buildSignedReply,
@@ -128,4 +129,29 @@ test("the signed reply never says booked and never promises a day", () => {
   assert.ok(!/\bbooked\b/i.test(reply));
   assert.match(reply, /office will give you a call to take payment/);
   assert.ok(buildSignedReply(undefined, 20).startsWith("thanks, you're signed"));
+});
+
+test("the team email has every contract field but payment, escaped, plus the signed summary", () => {
+  const summary = buildBookingSummary(company, onFile, { ...answers, placement: "<b>back</b> & side" });
+  const payload = buildBookingPayload(onFile, { ...answers, placement: "<b>back</b> & side" }, "Sam Lee", summary, new Date("2026-10-22T08:00:00Z"));
+  const { subject, html } = buildBookingEmail(company, payload, "https://app.gohighlevel.com/v2/location/loc/contacts/detail/sam");
+  assert.equal(subject, "Roll-off booking to enter: Sam Lee, 20 yard, Greeley");
+  for (const part of [
+    "Door to Door",
+    "12 Elm St",
+    "80631",
+    "+15551112222",
+    "sam@example.com",
+    "20 Yard ($400 per dump, up to 4 tons)",
+    "Municipal Solid Waste (MSW)",
+    "Personal",
+    "&lt;b&gt;back&lt;/b&gt; &amp; side",
+    "NEEDED: call the customer to take payment",
+    'they replied "Sam Lee"',
+    "a specific delivery day is $100 extra",
+    "contacts/detail/sam",
+  ]) {
+    assert.ok(html.includes(part), part);
+  }
+  assert.ok(!html.includes("<b>back</b>"), "lead text is escaped");
 });

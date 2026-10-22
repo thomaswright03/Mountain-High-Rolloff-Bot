@@ -275,6 +275,49 @@ export function buildOfficeNote(p: RollOffBookingPayload): string {
   ].join("\n");
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** The email the customer team gets for a signed booking (Thomas,
+ * 2026-10-22): the MTS New Roll-Off Contract filled in except payment, in
+ * the form's own order, then the summary they signed word for word. Plain
+ * HTML, every value escaped: names, placement and the signature are the
+ * lead's own text. */
+export function buildBookingEmail(company: CompanyConfig, p: RollOffBookingPayload, ghlContactUrl?: string): { subject: string; html: string } {
+  const size = sizeFor(company.rollOff, p.yards);
+  const rows: Array<[string, string]> = [
+    ["Company", company.displayName],
+    ["Sales Medium", ROLLOFF_SALES_MEDIUM],
+    ["First Name", p.firstName],
+    ["Last Name", p.lastName],
+    ["Service Address", p.address1],
+    ["City", p.city],
+    ["State", p.state],
+    ["Zip Code", p.postalCode],
+    ["Phone Number", p.phone],
+    ["Email", p.email ?? "(none on file)"],
+    ["Products", `${p.yards} Yard${size ? ` ($${size.pricePerDump} per dump, up to ${size.tonLimit} ton${size.tonLimit === 1 ? "" : "s"})` : ""}`],
+    ["Material", ROLLOFF_MATERIAL],
+    ["Customer Type", p.customerType],
+    ["Placement Instructions", p.placement],
+    ["Call Before Delivery", `${p.callBeforeDelivery ? "Yes" : "No"} (${p.phone})`],
+    ["Card Number / Expiration", "NEEDED: call the customer to take payment"],
+    ["Billing Information", "Same as Service Address"],
+  ];
+  const cell = "padding:4px 12px 4px 0;vertical-align:top;border-bottom:1px solid #eee";
+  const html = [
+    `<p><b>New roll-off booking signed by text.</b> Call ${escapeHtml(p.firstName)} at ${escapeHtml(p.phone)} to take payment, then enter it in MTS (New Roll-Off Contract) with the details below.</p>`,
+    `<table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">`,
+    ...rows.map(([k, v]) => `<tr><td style="${cell};font-weight:bold">${escapeHtml(k)}</td><td style="${cell}">${escapeHtml(v)}</td></tr>`),
+    `</table>`,
+    `<p><b>Signature:</b> they replied "${escapeHtml(p.signedName)}" at ${escapeHtml(p.signedAt)} to the summary below, which covers every item on the contract's Agreements list.</p>`,
+    `<pre style="font-family:sans-serif;font-size:14px;white-space:pre-wrap;background:#f6f6f6;padding:12px">${escapeHtml(p.summary)}</pre>`,
+    ghlContactUrl ? `<p>GHL contact: ${escapeHtml(ghlContactUrl)}</p>` : "",
+  ].join("\n");
+  return { subject: `Roll-off booking to enter: ${p.firstName} ${p.lastName}, ${p.yards} yard, ${p.city}`, html };
+}
+
 /** Fixed text sent right after they sign. Doesn't say "booked": the
  * contract isn't in MTS until the office enters it with their card. */
 export function buildSignedReply(firstName: string | undefined, yards: number): string {

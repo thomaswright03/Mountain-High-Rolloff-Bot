@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 export interface MockGhlServer {
   url: string;
   sentMessages: Array<{ contactId: string; message: string }>;
+  sentEmails: Array<{ contactId: string; subject: string; html: string }>;
   taggedContacts: Array<{ contactId: string; tag: string }>;
   removedTags: Array<{ contactId: string; tag: string }>;
   notes: Array<{ contactId: string; body: string }>;
@@ -22,11 +23,12 @@ export interface MockGhlFixtures {
   conversationsByContact?: Record<string, string>;
 }
 
-/** Minimal fake of the 4 GHL REST endpoints lib/ghl.ts calls, so we can
+/** Minimal fake of the GHL REST endpoints lib/ghl.ts calls, so we can
  * exercise api/webhook.ts's real orchestration logic without hitting the
  * real GoHighLevel API or needing real credentials. */
 export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlServer> {
   const sentMessages: Array<{ contactId: string; message: string }> = [];
+  const sentEmails: Array<{ contactId: string; subject: string; html: string }> = [];
   const taggedContacts: Array<{ contactId: string; tag: string }> = [];
   const removedTags: Array<{ contactId: string; tag: string }> = [];
   const notes: Array<{ contactId: string; body: string }> = [];
@@ -62,6 +64,14 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
         return;
       }
 
+      if (method === "GET" && url.startsWith("/contacts/search/duplicate")) {
+        const email = new URL(url, "http://localhost").searchParams.get("email");
+        const id = Object.keys(fixtures.contacts).find((k) => email && fixtures.contacts[k]!.email === email);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ contact: id ? { id, ...fixtures.contacts[id] } : null }));
+        return;
+      }
+
       const convoMatch = /^\/conversations\/([^/]+)\/messages$/.exec(url);
       if (method === "GET" && convoMatch) {
         const history = fixtures.conversationHistories[convoMatch[1]!] ?? [];
@@ -82,7 +92,8 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
 
       if (method === "POST" && url === "/conversations/messages") {
         const parsed = JSON.parse(body);
-        sentMessages.push({ contactId: parsed.contactId, message: parsed.message });
+        if (parsed.type === "Email") sentEmails.push({ contactId: parsed.contactId, subject: parsed.subject, html: parsed.html });
+        else sentMessages.push({ contactId: parsed.contactId, message: parsed.message });
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
         return;
@@ -132,7 +143,9 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
       if (method === "POST" && url === "/contacts/upsert") {
         const parsed = JSON.parse(body);
         upserts.push(parsed);
-        let id = Object.keys(fixtures.contacts).find((k) => parsed.phone && fixtures.contacts[k]!.phone === parsed.phone);
+        let id = Object.keys(fixtures.contacts).find(
+          (k) => (parsed.phone && fixtures.contacts[k]!.phone === parsed.phone) || (parsed.email && !parsed.phone && fixtures.contacts[k]!.email === parsed.email)
+        );
         if (!id) {
           id = `new_${upserts.length}`;
           fixtures.contacts[id] = { tags: [] };
@@ -166,6 +179,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
       resolve({
         url: `http://127.0.0.1:${port}`,
         sentMessages,
+        sentEmails,
         taggedContacts,
         removedTags,
         notes,

@@ -49,6 +49,14 @@ login; they're kept apart by GHL tags.
   the conversation is starred. MTS won't save a roll-off contract without a
   card, so the office calls, takes the card and enters it. If anything on
   file is missing, the office finishes the booking instead.
+- **The booking email** (Thomas, 2026-10-22): each signed booking is also
+  emailed through GHL to `rollOff.bookingEmail` (Thomas's own address for
+  now, until the customer team's is set up). It lists every field on the
+  MTS form except the card, in form order, plus the signed summary and a
+  link to the GHL contact. It goes to the GHL contact with that email (one
+  is created as "<company> Customer Team" if none exists; an existing one
+  is never renamed). A failed send leaves a note on the lead. In dry run
+  it only logs `rolloff_booking_email_dry_run`.
 - **Facts the bot may state:** `rollOff` in `lib/companies.ts`: sizes, the
   CEO's per-dump prices and weight limits, the 7-day rental, what can't go
   in, and the fees from the MTS contract's Agreements. Anything else (the
