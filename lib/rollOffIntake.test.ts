@@ -91,6 +91,13 @@ test("normalizePhone and parseAddress", () => {
   assert.equal(normalizePhone("412-0282"), null);
   assert.deepEqual(parseAddress("8721 19th Street Road, Greeley, CO 80634"), { address1: "8721 19th Street Road", city: "Greeley", state: "CO", postalCode: "80634" });
   assert.equal(parseAddress("no commas here"), null);
+  assert.deepEqual(parseAddress("5036 S Ventura St, Aurora|co|120, CO 80015-2036"), { address1: "5036 S Ventura St", city: "Aurora", state: "CO", postalCode: "80015" });
+});
+
+test("a Loveland address with MTS's pipe junk is still skipped", () => {
+  assert.deepEqual(decideRow(row({ address: "12 Main St, Loveland|co|069, CO 80537" }), company, NOW), {
+    skip: "outside where Mountain High Disposal takes new customers (Loveland, CO)",
+  });
 });
 
 test("leadLandedAt: the newest pick-up note wins over an old contact's dateAdded", () => {

@@ -7,9 +7,9 @@
 // Under DRY_RUN this only reads MTS and logs what it would pick up. It
 // never writes to GHL. Reading the page is the only thing it does in MTS.
 //
-// The page layout is from Thomas's screenshot (2026-10-10), not from the
-// live HTML, so the table is read by its column headers rather than by
-// position. A run that finds no table, or none of the expected columns,
+// The table is read by its column headers rather than by position.
+// readRollOffLeadRows.test.ts checks this against the real page, saved
+// 2026-10-22 (fixtures/rolloff-leads.html, with the leads' details faked). A run that finds no table, or none of the expected columns,
 // fails loudly instead of silently picking up nothing.
 import { chromium, type Page } from "playwright";
 import { findCompany } from "../lib/companies.js";
