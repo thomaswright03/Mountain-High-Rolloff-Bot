@@ -13,6 +13,7 @@ test("links, template markers, unapproved amounts, date promises, 'booked' claim
   assert.ok(gradeDraft("finish it here [[BOOKING_LINK]]").includes("sends a link"));
   assert.ok(gradeDraft("overweight is $75 a ton").some((p) => p.includes("unapproved amount")));
   assert.ok(gradeDraft("goes $85 extra per ton over that").includes("states the $85 fee as per ton (it is flat)"));
+  assert.ok(gradeDraft("it's $85 flat per ton over that").includes("states the $85 fee as per ton (it is flat)"));
   assert.deepEqual(gradeDraft("over 1 ton it's a flat $85 extra"), []);
   assert.ok(gradeDraft("we'll deliver it Saturday morning").includes("promises a delivery date"));
   assert.ok(gradeDraft("you're booked for the 20 yard").includes("says it is booked"));

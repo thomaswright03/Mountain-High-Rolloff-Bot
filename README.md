@@ -201,6 +201,12 @@ fail per case) so a regression can be traced. The model default is the alias
 the alias, so there is no dated snapshot to pin; if one is published later,
 set `CLAUDE_MODEL_ID` and re-run the eval.
 
+Two models are used: `claude-sonnet-5` (`CLAUDE_MODEL_ID`) writes the replies
+and nudges; the cheaper `claude-haiku-5-5` (`CLAUDE_CHEAP_MODEL_ID`) makes the
+small hand-off yes/no check and reads the booking answers out of a text. The
+eval checks both jobs. To roll the cheap jobs back to Sonnet, set
+`CLAUDE_CHEAP_MODEL_ID=claude-sonnet-5`.
+
 ## Logs
 
 Logs are JSON lines on stdout: Vercel keeps them only a short time (check

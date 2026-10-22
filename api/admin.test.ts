@@ -61,7 +61,7 @@ test("signed in, /admin shows the three groups in order, the rows, and the Lates
   const html: string = r.body;
   const at = (s: string) => html.indexOf(s);
   assert.ok(at("<h2>Important</h2>") > 0 && at("<h2>Important</h2>") < at("<h2>Key</h2>") && at("<h2>Key</h2>") < at("<h2>Basic</h2>") && at("<h2>Basic</h2>") < at("Latest Update"));
-  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "GHL API", "Claude API", "MTS login", "Record storage", "GitHub Actions job", "Kill switch", "Deployed version"]) {
+  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "Contact system (GoHighLevel)", "AI replies (Claude)", "MTS sign-in", "Record storage", "Scheduled job", "Kill switch", "Deployed version"]) {
     assert.ok(html.includes(name), name);
   }
   assert.ok(at("Frontend changes") > at("Latest Update") && at("Frontend changes") < at("Other changes"));
@@ -91,7 +91,7 @@ test("a recorded job result drives its row", async () => {
   assert.equal(row("Lead pick-up from MTS").status, "ok");
   assert.equal(row("Scheduled texts").status, "down");
   assert.equal(r.body.overall, "down");
-  assert.equal(row("GitHub Actions job").status, "down");
+  assert.equal(row("Scheduled job").status, "down");
 });
 
 function inputs(over: Partial<StatusInputs> = {}): StatusInputs {

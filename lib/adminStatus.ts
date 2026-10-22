@@ -161,18 +161,18 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   rows.push(signed);
 
   // Key
-  rows.push({ tier: "Key", name: "GHL API", status: i.ghl.status, last_checked: i.ghl.status === "Unknown" ? null : checked, last_success: i.ghl.status === "OK" ? checked : null, next_expected_run: null, detail: i.ghl.detail });
+  rows.push({ tier: "Key", name: "Contact system (GoHighLevel)", status: i.ghl.status, last_checked: i.ghl.status === "Unknown" ? null : checked, last_success: i.ghl.status === "OK" ? checked : null, next_expected_run: null, detail: i.ghl.detail });
   // The signed booking goes to the customer team by email through GHL.
   const bookingEmail = serviceRow("Key", "Booking email to the office", beats["booking-email"] ?? null, now, "the booking email");
   if (bookingEmail.status === "Warning" && beats["booking-email"]?.ok) bookingEmail.status = "OK";
   rows.push(bookingEmail);
-  rows.push(serviceRow("Key", "Claude API", beats.claude ?? null, now, "Claude"));
-  rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
+  rows.push(serviceRow("Key", "AI replies (Claude)", beats.claude ?? null, now, "Claude"));
+  rows.push(jobRow("Key", "MTS sign-in", beats["mts-login"] ?? null, now, "MTS login"));
   rows.push({ tier: "Key", name: "Record storage", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
   const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
   rows.push(stuckRow(beats["rolloff-stuck"] ?? null));
   rows.push(backupRow(beats.backup ?? null, now));
-  const job = jobRow("Key", "GitHub Actions job", latestRun, now, "scheduled job");
+  const job = jobRow("Key", "Scheduled job", latestRun, now, "scheduled job");
   const jobBad = [importBeat, sendBeat].some((b) => b && !b.ok);
   rows.push(jobBad ? { ...job, status: "Down", detail: `A step failed in its last run. Ask your developer to look at the failed run. ${job.detail}` } : job);
 
@@ -206,6 +206,12 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   else if (pending === null) rows.push({ ...manual, status: "Warning", last_success: null, detail: "Set up, but the list of signed contracts waiting for the office couldn't be read. Ask your developer to check it." });
   else rows.push({ ...manual, status: "OK", last_success: checked, detail: "Ready, and no hand-made contract is waiting for the office." });
   const sha = env.VERCEL_GIT_COMMIT_SHA;
+  // DEPLOYED_AT (ISO time) is set at deploy; shown in Denver time when valid.
+  const deployedAt = (v?: string) => {
+    const d = v ? new Date(v) : null;
+    if (!d || Number.isNaN(d.getTime())) return "";
+    return ` since ${d.toLocaleString("en-US", { timeZone: "America/Denver", dateStyle: "medium", timeStyle: "short" })} Denver time`;
+  };
   rows.push({
     tier: "Basic",
     name: "Deployed version",
@@ -213,7 +219,7 @@ export function buildStatus(i: StatusInputs): AdminStatus {
     last_checked: checked,
     last_success: sha ? checked : null,
     next_expected_run: null,
-    detail: sha ? `Version ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""} is live. See Latest Update below for what changed.` : "Not running on Vercel, so there is no deployed version to report.",
+    detail: sha ? `Version ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""} is live${deployedAt(env.DEPLOYED_AT)}. See Latest Update below for what changed.` : "Not running on Vercel, so there is no deployed version to report.",
   });
 
   const important = rows.filter((r) => r.tier === "Important");

@@ -56,3 +56,4 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - Run `npm run eval` once with a key and commit `docs/eval-results.md`; measure cost per conversation.
 - Admin GHL check calls `/locations/{id}`; confirm the token can read it once GHL is connected.
 - Thomas: kill-switch flag + `KILLSWITCH_URL`; deploy to Vercel with secrets (`ADMIN_STATUS_TOKEN`, `BLOB_READ_WRITE_TOKEN` also as GitHub secret); `HITTA_API_KEY` GitHub secret; CEO's TCPA consent; standard terms and fee prices; branch protection; privacy notice for IP/browser.
+- 2026-10-22 fix round 2: documented CLAUDE_CHEAP_MODEL_ID; $85 check hardened; /admin plain names; DEPLOYED_AT shown in Denver time. Thomas still needs: deploy, eval re-run, TCPA consent, booking email.
