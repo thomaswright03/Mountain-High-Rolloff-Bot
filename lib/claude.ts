@@ -19,6 +19,10 @@ function cachedSystem(text: string): Anthropic.TextBlockParam[] {
   return [{ type: "text", text, cache_control: { type: "ephemeral" } } as Anthropic.TextBlockParam];
 }
 
+/** The exact model IDs the API answered with (a dated snapshot behind each
+ * alias), so `npm run eval` can record what to pin. */
+export const servedModels = new Set<string>();
+
 let client: Anthropic | undefined;
 
 function getClient(): Anthropic {
@@ -43,9 +47,10 @@ function getClient(): Anthropic {
 async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, purpose = "claude"): Promise<Anthropic.Message> {
   try {
     const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as Anthropic.MessageCreateParamsNonStreaming);
+    servedModels.add(message.model);
     // Token counts per call, so the cost-per-conversation estimate can be checked against real logs.
     const usage = message.usage as { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | undefined;
-    logEvent({ event: "claude_usage", purpose, model: params.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
+    logEvent({ event: "claude_usage", purpose, model: params.model, servedModel: message.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
     await recordHeartbeat("claude", true, `last call: ${purpose}`);
     return message;
   } catch (err: unknown) {
