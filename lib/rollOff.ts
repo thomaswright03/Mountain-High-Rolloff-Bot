@@ -57,11 +57,30 @@ export function hasResidentialTag(tags: string[] | undefined): boolean {
   return (tags ?? []).some((t) => t.toLowerCase() === RESIDENTIAL_TAG);
 }
 
+const STATE_CODES: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA", colorado: "CO", connecticut: "CT",
+  delaware: "DE", "district of columbia": "DC", florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID", illinois: "IL",
+  indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA", maine: "ME", maryland: "MD",
+  massachusetts: "MA", michigan: "MI", minnesota: "MN", mississippi: "MS", missouri: "MO", montana: "MT",
+  nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+  "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK", oregon: "OR", pennsylvania: "PA",
+  "rhode island": "RI", "south carolina": "SC", "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT",
+  vermont: "VT", virginia: "VA", washington: "WA", "west virginia": "WV", wisconsin: "WI", wyoming: "WY",
+};
+
+/** Two-letter code for a state as GHL may hold it: "CO", " co ", or
+ * "colorado" typed out on a manually made contact (Thomas's test contact,
+ * 2026-10-22, was read as out of area). Anything else is just uppercased. */
+export function stateCode(state: string | null | undefined): string {
+  const s = (state ?? "").trim().replace(/\s+/g, " ");
+  return STATE_CODES[s.toLowerCase()] ?? s.toUpperCase();
+}
+
 /** True only when the contact's on-file state is set and isn't one the
  * brand serves. A missing state isn't treated as out of area here — the
  * booking form checks the address itself. */
 export function isOutsideServiceStates(state: string | null | undefined, serviceStates: string[]): boolean {
-  const s = state?.trim().toUpperCase();
+  const s = stateCode(state);
   return Boolean(s) && !serviceStates.some((allowed) => allowed.toUpperCase() === s);
 }
 

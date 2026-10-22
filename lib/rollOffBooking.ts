@@ -1,5 +1,6 @@
 import type { CompanyConfig, ConversationTurn, RollOffConfig, RollOffSize } from "./types.js";
 import { TRANSCRIPT_FORMAT_NOTE } from "./prompt.js";
+import { stateCode } from "./rollOff.js";
 
 // Booking a roll-off in the text thread (Thomas, 2026-10-21: "we dont want
 // it to send a link. we want it to book the client right there"). Same
@@ -99,7 +100,7 @@ export function contactOnFile(contact: Record<string, any>): ContactOnFile | nul
     email: str(contact.email) || undefined,
     address1: str(contact.address1),
     city: str(contact.city),
-    state: str(contact.state).toUpperCase(),
+    state: stateCode(str(contact.state)),
     postalCode: str(contact.postalCode),
   };
   if (!c.firstName || !c.lastName || !c.phone || !c.address1 || !c.city || !c.state || !c.postalCode) return null;
