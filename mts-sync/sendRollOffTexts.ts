@@ -41,12 +41,14 @@ import { getContact, findConversationId, getConversationHistory, getNotes, sendS
 import { isWithinQuietHours } from "../lib/safety.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
+import { JOB_INTERVAL_MIN } from "../lib/adminStatus.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
 import { retryPendingNotices } from "../lib/pendingNotices.js";
 import { loginToMts } from "./mtsLogin.js";
 import { checkMtsContractList } from "./mtsStatusCheck.js";
 import { leadLandedAt } from "../lib/rollOffIntake.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
+import { errorMessage } from "../lib/errors.js";
 
 const TARGET_COMPANY = "Mountain High Disposal";
 const NEEDS_HUMAN_TAG = "ai-needs-human";
@@ -252,14 +254,41 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     // blocks every future run for this contact (a lesson from Kaizen's sendOutreach.ts).
     try {
       await removeTag(contactId, ROLLOFF_PROCESSING_TAG);
-    } catch (err: any) {
-      logEvent({ event: "rolloff_processing_tag_cleanup_failed", contactId, error: err.message });
+    } catch (err: unknown) {
+      logEvent({ event: "rolloff_processing_tag_cleanup_failed", contactId, error: errorMessage(err) });
     }
   }
 }
 
 /** contactIdOverride / `--contact-id=` processes exactly one contact —
  * manual/debug runs only. */
+/** A send run that dies mid-send leaves ROLLOFF_PROCESSING_TAG on the contact, and
+ * that tag blocks every later run. Runs never overlap (workflow concurrency group),
+ * so a tag older than one run interval is stranded: release it and the contact is
+ * retried next pass. Returns what it released and what it could not. */
+export async function releaseStuckProcessingTags(now: Date = new Date(), staleMinutes = JOB_INTERVAL_MIN): Promise<{ released: number; stillStuck: number }> {
+  const tagged = await findContactsByTag(ROLLOFF_PROCESSING_TAG, process.env.GHL_LOCATION_ID ?? "");
+  let released = 0;
+  let stillStuck = 0;
+  for (const c of tagged) {
+    const touched = Date.parse(String(c.dateUpdated ?? c.dateAdded ?? ""));
+    if (Number.isFinite(touched) && now.getTime() - touched < staleMinutes * 60_000) {
+      stillStuck++; // claimed moments ago; not stale yet
+      continue;
+    }
+    try {
+      await removeTag(String(c.id), ROLLOFF_PROCESSING_TAG);
+      await addNote(String(c.id), "AI roll-off texting was interrupted mid-send for this contact. The processing tag was released so it is retried on the next run.");
+      released++;
+      logEvent({ event: "rolloff_processing_tag_released", contactId: c.id });
+    } catch (err: unknown) {
+      stillStuck++;
+      logEvent({ event: "rolloff_processing_tag_release_failed", contactId: c.id, error: (err as Error)?.message });
+    }
+  }
+  return { released, stillStuck };
+}
+
 export async function run(contactIdOverride?: string): Promise<void> {
   if (!(await isServiceActive())) {
     logEvent({ event: "rolloff_text_service_paused" });
@@ -273,8 +302,17 @@ export async function run(contactIdOverride?: string): Promise<void> {
   try {
     const pending = await retryPendingNotices();
     if (pending.delivered || pending.stillPending) console.log(`Contract notices: delivered ${pending.delivered}, still pending ${pending.stillPending}`);
-  } catch (err: any) {
-    logEvent({ event: "contract_notice_retry_crashed", error: err.message });
+  } catch (err: unknown) {
+    logEvent({ event: "contract_notice_retry_crashed", error: errorMessage(err) });
+  }
+
+  if (process.env.DRY_RUN !== "true") {
+    try {
+      const { released, stillStuck } = await releaseStuckProcessingTags();
+      await recordHeartbeat("rolloff-stuck", stillStuck === 0, stillStuck === 0 ? (released ? `released ${released} stranded contact(s) for retry` : "none stuck") : `${stillStuck} still tagged`, new Date(), { count: stillStuck });
+    } catch (err: unknown) {
+      logEvent({ event: "rolloff_stuck_sweep_failed", error: (err as Error)?.message });
+    }
   }
 
   const cliContactId = contactIdOverride ?? process.argv.find((a) => a.startsWith("--contact-id="))?.split("=")[1];
@@ -302,12 +340,12 @@ export async function run(contactIdOverride?: string): Promise<void> {
         if (outcome === "sent") sent++;
         else if (outcome === "retry") retried++;
         else skipped++;
-      } catch (err: any) {
-        logEvent({ event: "rolloff_text_error", contactId: entry.contactId, error: err.message });
+      } catch (err: unknown) {
+        logEvent({ event: "rolloff_text_error", contactId: entry.contactId, error: errorMessage(err) });
         if (!dryRun) {
           try {
             await addTag(entry.contactId, NEEDS_HUMAN_TAG);
-            await addNote(entry.contactId, `AI roll-off text hit an error and could not send: ${err.message}`);
+            await addNote(entry.contactId, `AI roll-off text hit an error and could not send: ${errorMessage(err)}`);
           } catch {
             // swallow — the original error above is already logged
           }
@@ -333,7 +371,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
   run().catch(async (err) => {
     console.error(err);
-    await recordHeartbeat("rolloff-send", false, `crashed: ${err?.message ?? err}`);
+    await recordHeartbeat("rolloff-send", false, `crashed: ${errorMessage(err) ?? err}`);
     process.exit(1);
   });
 }

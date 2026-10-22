@@ -32,6 +32,7 @@ import { logEvent } from "./logging.js";
 import { recordHeartbeat } from "./runStatus.js";
 import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
+import { errorMessage } from "./errors.js";
 
 const NEEDS_HUMAN_TAG = "ai-needs-human";
 
@@ -50,8 +51,8 @@ async function tryStarConversation(conversationId: string | undefined, contactId
   if (!conversationId) return;
   try {
     await starConversation(conversationId);
-  } catch (err: any) {
-    logEvent({ event: "rolloff_star_conversation_failed", contactId, error: err.message });
+  } catch (err: unknown) {
+    logEvent({ event: "rolloff_star_conversation_failed", contactId, error: errorMessage(err) });
   }
 }
 
@@ -121,8 +122,8 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     if (conversationId && !isDryRun()) {
       try {
         await markConversationRead(conversationId);
-      } catch (err: any) {
-        logEvent({ event: "rolloff_mark_read_failed", contactId, error: err.message });
+      } catch (err: unknown) {
+        logEvent({ event: "rolloff_mark_read_failed", contactId, error: errorMessage(err) });
       }
     }
     return { action: "opted_out" };
@@ -270,10 +271,10 @@ async function trySend(contactId: string, text: string): Promise<boolean> {
   try {
     await sendSms(contactId, text);
     return true;
-  } catch (smsErr: any) {
+  } catch (smsErr: unknown) {
     // Same as the residential reply: DND is an intentional suppression,
     // not an error for a human to chase.
-    if (smsErr.message?.includes("DND is active for SMS")) {
+    if (errorMessage(smsErr)?.includes("DND is active for SMS")) {
       await addNote(contactId, `Roll-off reply drafted but not sent — contact is DND for SMS: "${text}"`);
       logEvent({ event: "rolloff_send_blocked_dnd", contactId, draft: text });
       return false;
@@ -326,8 +327,8 @@ async function recordSignature(input: {
   // see it; no ai-needs-human, so the bot can still answer their texts.
   try {
     await withRetries(() => writeSigningRecords(contactId, conversationId, payload));
-  } catch (err: any) {
-    await recordHeartbeat("booking-signed", false, `the last signing could not be fully recorded in GHL: ${err.message}`);
+  } catch (err: unknown) {
+    await recordHeartbeat("booking-signed", false, `the last signing could not be fully recorded in GHL: ${errorMessage(err)}`);
     throw err;
   }
   await recordHeartbeat("booking-signed", true, "the last signing was tagged, noted and starred for the office");
@@ -344,8 +345,8 @@ async function withRetries(step: () => Promise<void>): Promise<void> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await step();
-    } catch (err: any) {
-      logEvent({ event: "rolloff_signing_step_failed", attempt, error: err.message });
+    } catch (err: unknown) {
+      logEvent({ event: "rolloff_signing_step_failed", attempt, error: errorMessage(err) });
       if (attempt >= SIGNING_ATTEMPTS) throw err;
     }
   }
@@ -386,11 +387,11 @@ async function emailBooking(company: CompanyConfig, payload: RollOffBookingPaylo
     await sendEmail(teamContactId, subject, html);
     logEvent({ event: "rolloff_booking_emailed", contactId, to });
     await recordHeartbeat("booking-email", true, `the last booking was emailed to ${to}`);
-  } catch (err: any) {
-    logEvent({ event: "rolloff_booking_email_failed", contactId, error: err.message });
-    await recordHeartbeat("booking-email", false, `the last booking email to ${to} failed: ${err.message}`);
+  } catch (err: unknown) {
+    logEvent({ event: "rolloff_booking_email_failed", contactId, error: errorMessage(err) });
+    await recordHeartbeat("booking-email", false, `the last booking email to ${to} failed: ${errorMessage(err)}`);
     try {
-      await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${err.message}). Everything the office needs is in the note above.`);
+      await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${errorMessage(err)}). Everything the office needs is in the note above.`);
     } catch {
       // The failure is logged; the booking note and star are already there.
     }

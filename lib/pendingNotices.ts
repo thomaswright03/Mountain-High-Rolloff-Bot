@@ -2,6 +2,7 @@ import { put, get, list, del } from "@vercel/blob";
 import { addNote, addTag } from "./ghl.js";
 import { logEvent } from "./logging.js";
 import { blobFolder } from "./blobNamespace.js";
+import { errorMessage } from "./errors.js";
 
 // A signed contract must reach the office. If the GHL note and tags can't be
 // written right after signing, the notice is parked here (private Blob
@@ -87,15 +88,15 @@ export async function notifyOfficeOrPark(contractId: string, contactId: string, 
   try {
     await deliverSignedNotice(contactId, note);
     return true;
-  } catch (err: any) {
-    logEvent({ event: "contract_signed_ghl_failed", contractId, error: err.message });
+  } catch (err: unknown) {
+    logEvent({ event: "contract_signed_ghl_failed", contractId, error: errorMessage(err) });
     try {
       if (!backend.ready()) throw new Error("no Blob store to park the notice in");
-      await backend.put(contractId, { contractId, contactId, note, createdAt: new Date().toISOString(), attempts: 1, lastError: String(err.message).slice(0, 300) });
+      await backend.put(contractId, { contractId, contactId, note, createdAt: new Date().toISOString(), attempts: 1, lastError: String(errorMessage(err)).slice(0, 300) });
       logEvent({ event: "contract_notice_parked", contractId });
-    } catch (parkErr: any) {
+    } catch (parkErr: unknown) {
       // Last resort: the log line is all there is. Loud on purpose.
-      logEvent({ event: "contract_notice_LOST", contractId, contactId, error: parkErr.message });
+      logEvent({ event: "contract_notice_LOST", contractId, contactId, error: errorMessage(parkErr) });
     }
     return false;
   }
@@ -114,10 +115,10 @@ export async function retryPendingNotices(): Promise<{ delivered: number; stillP
       await backend.remove(id);
       delivered++;
       logEvent({ event: "contract_notice_delivered_on_retry", contractId: id });
-    } catch (err: any) {
+    } catch (err: unknown) {
       stillPending++;
-      await backend.put(id, { ...notice, attempts: notice.attempts + 1, lastError: String(err.message).slice(0, 300) });
-      logEvent({ event: "contract_notice_retry_failed", contractId: id, attempts: notice.attempts + 1, error: err.message });
+      await backend.put(id, { ...notice, attempts: notice.attempts + 1, lastError: String(errorMessage(err)).slice(0, 300) });
+      logEvent({ event: "contract_notice_retry_failed", contractId: id, attempts: notice.attempts + 1, error: errorMessage(err) });
     }
   }
   return { delivered, stillPending };

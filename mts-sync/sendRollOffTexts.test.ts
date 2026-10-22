@@ -36,6 +36,8 @@ before(async () => {
   ghl = await startMockGhlServer({
     contacts: {
       fresh: base("fresh"),
+      stuck_old: { id: "stuck_old", tags: ["ai-rolloff-processing"], dateUpdated: ago(45) },
+      stuck_new: { id: "stuck_new", tags: ["ai-rolloff-processing"], dateUpdated: ago(2) },
       too_new: base("too_new", { dateAdded: ago(10) }),
       bad_name: base("bad_name", { firstName: "https://evil.example/pay" }),
       dnd: base("dnd", { dnd: true }),
@@ -227,6 +229,7 @@ test("next-day follow-up: model-drafted and tagged", async () => {
   const request = claude.requests[0]!;
   assert.match(request.system, /hasn't answered our last text in about a day/);
   assert.ok(!request.system.includes("Jane"), "the lead's name goes in the user turn, never the system prompt");
+  assert.equal(request.cached, true, "the stable system prompt is sent as a cacheable block");
 });
 
 test("the cold-open note stands in for a lost sent tag, so the cold open is never sent twice", async () => {
@@ -275,5 +278,16 @@ test("a run where a contact errors exits non-zero and records the failure, so Gi
   } finally {
     process.exitCode = previous;
     setStatusBackendForTests(null);
+  }
+});
+
+test("a contact stranded with the processing tag is released and noted; one claimed moments ago is left alone", async () => {
+  ghl.removedTags.length = 0;
+  const { releaseStuckProcessingTags } = (await import("./sendRollOffTexts.js")) as any;
+  {
+    const result = await releaseStuckProcessingTags(NOW);
+    assert.deepEqual(result, { released: 1, stillStuck: 1 });
+    assert.ok(ghl.removedTags.some((t) => t.contactId === "stuck_old" && t.tag === "ai-rolloff-processing"));
+    assert.ok(!ghl.removedTags.some((t) => t.contactId === "stuck_new"));
   }
 });

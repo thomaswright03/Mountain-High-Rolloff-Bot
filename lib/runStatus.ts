@@ -1,6 +1,7 @@
 import { put, get } from "@vercel/blob";
 import { logEvent } from "./logging.js";
 import { blobFolder } from "./blobNamespace.js";
+import { errorMessage } from "./errors.js";
 
 // Recorded results for /admin (api/admin.ts): each job and each outside
 // service writes one small JSON file (a "heartbeat") to the private Blob
@@ -19,6 +20,10 @@ export interface Heartbeat {
   detail: string;
   /** Set when the run was stopped by the kill switch rather than finishing its work. */
   paused?: boolean;
+  /** A count the run wants shown (e.g. contacts still stuck). */
+  count?: number;
+  /** The run finished but something looks wrong (shown as a Warning, not Down). */
+  warning?: boolean;
 }
 
 export interface StatusBackend {
@@ -64,7 +69,7 @@ export function statusStoreReady(): boolean {
 }
 
 /** Never throws. */
-export async function recordHeartbeat(name: string, ok: boolean, detail: string, now: Date = new Date(), extra: { paused?: boolean } = {}): Promise<void> {
+export async function recordHeartbeat(name: string, ok: boolean, detail: string, now: Date = new Date(), extra: { paused?: boolean; count?: number; warning?: boolean } = {}): Promise<void> {
   if (!SAFE_NAME.test(name) || !backend.ready()) return;
   try {
     const previous = await backend.read(name).catch(() => null);
@@ -75,9 +80,11 @@ export async function recordHeartbeat(name: string, ok: boolean, detail: string,
       lastSuccess: ok ? now.toISOString() : previous?.lastSuccess ?? null,
       detail: detail.slice(0, 300),
       ...(extra.paused ? { paused: true } : {}),
+      ...(extra.warning ? { warning: true } : {}),
+      ...(extra.count !== undefined ? { count: extra.count } : {}),
     });
-  } catch (err: any) {
-    logEvent({ event: "heartbeat_write_failed", name, error: err?.message });
+  } catch (err: unknown) {
+    logEvent({ event: "heartbeat_write_failed", name, error: errorMessage(err) });
   }
 }
 
@@ -86,8 +93,8 @@ export async function readHeartbeat(name: string): Promise<Heartbeat | null> {
   if (!SAFE_NAME.test(name) || !backend.ready()) return null;
   try {
     return await backend.read(name);
-  } catch (err: any) {
-    logEvent({ event: "heartbeat_read_failed", name, error: err?.message });
+  } catch (err: unknown) {
+    logEvent({ event: "heartbeat_read_failed", name, error: errorMessage(err) });
     return null;
   }
 }

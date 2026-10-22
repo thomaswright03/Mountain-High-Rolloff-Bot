@@ -1,6 +1,7 @@
 import { put, list } from "@vercel/blob";
 import { contractsFolder } from "./contractStore.js";
 import { logEvent } from "./logging.js";
+import { errorMessage } from "./errors.js";
 
 // What the roll-off dashboard counts (Thomas, 2026-10-10: "displays how many
 // roll off dumpster contracts have been signed, how many people have been
@@ -97,10 +98,10 @@ export async function recordFunnelEvent(event: FunnelEvent, contactId: string): 
   }
   try {
     await backend.putOnce(`${FUNNEL_FOLDER}/${event}/${contactId}.json`, JSON.stringify({ contactId, event, at: new Date().toISOString() }));
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Already recorded for this lead: their first text counts, not this one.
-    if (/exist/i.test(String(err?.message))) return;
-    logEvent({ event: "funnel_event_record_failed", funnelEvent: event, contactId, error: err?.message });
+    if (/exist/i.test(String(errorMessage(err)))) return;
+    logEvent({ event: "funnel_event_record_failed", funnelEvent: event, contactId, error: errorMessage(err) });
   }
 }
 

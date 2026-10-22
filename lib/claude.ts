@@ -7,6 +7,18 @@ import { recordHeartbeat } from "./runStatus.js";
  * CLAUDE_MODEL_ID to pin a dated snapshot (and re-run `npm run eval`). */
 export const CLAUDE_MODEL = process.env.CLAUDE_MODEL_ID || "claude-sonnet-5";
 
+/** The cheaper model for the tiny yes/no and JSON-extraction calls. Sonnet
+ * is not needed for them. Not yet checked against `npm run eval` (needs an
+ * API key): set CLAUDE_CHEAP_MODEL_ID=${CLAUDE_MODEL} to put them back on Sonnet. */
+export const CLAUDE_CHEAP_MODEL = process.env.CLAUDE_CHEAP_MODEL_ID || "claude-haiku-5-5";
+
+/** The stable system prompt as a cacheable block: repeat calls within the
+ * cache window read it at a fraction of the price. */
+function cachedSystem(text: string): Anthropic.TextBlockParam[] {
+  // cache_control isn't in this installed SDK version's types, but the API accepts it.
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } } as Anthropic.TextBlockParam];
+}
+
 let client: Anthropic | undefined;
 
 function getClient(): Anthropic {
@@ -30,13 +42,14 @@ function getClient(): Anthropic {
  * param) but the raw API accepts it — hence the cast. */
 async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, purpose = "claude"): Promise<Anthropic.Message> {
   try {
-    const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as any);
+    const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as Anthropic.MessageCreateParamsNonStreaming);
     // Token counts per call, so the cost-per-conversation estimate can be checked against real logs.
-    logEvent({ event: "claude_usage", purpose, model: params.model, inputTokens: message.usage?.input_tokens, outputTokens: message.usage?.output_tokens });
+    const usage = message.usage as { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | undefined;
+    logEvent({ event: "claude_usage", purpose, model: params.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
     await recordHeartbeat("claude", true, `last call: ${purpose}`);
     return message;
-  } catch (err: any) {
-    await recordHeartbeat("claude", false, String(err?.message ?? err).slice(0, 200));
+  } catch (err: unknown) {
+    await recordHeartbeat("claude", false, String((err as { message?: string })?.message ?? err).slice(0, 200));
     throw err;
   }
 }
@@ -47,7 +60,7 @@ export async function draftReply(systemPrompt: string, conversationText: string,
   const response = await createMessage({
     model: CLAUDE_MODEL,
     max_tokens: 300,
-    system: systemPrompt,
+    system: cachedSystem(systemPrompt),
     messages: [
       {
         role: "user",
@@ -74,7 +87,7 @@ export async function draftFollowUp(systemPrompt: string, conversationText: stri
   const response = await createMessage({
     model: CLAUDE_MODEL,
     max_tokens: 300,
-    system: systemPrompt,
+    system: cachedSystem(systemPrompt),
     messages: [
       {
         role: "user",
@@ -99,9 +112,9 @@ export async function draftFollowUp(systemPrompt: string, conversationText: stri
  * that one turn rather than a guaranteed miss. */
 export async function detectHandoff(systemPrompt: string, draft: string): Promise<boolean> {
   const response = await createMessage({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_CHEAP_MODEL,
     max_tokens: 50,
-    system: systemPrompt,
+    system: cachedSystem(systemPrompt),
     messages: [{ role: "user", content: `Message: ${JSON.stringify(draft)}\n\nOutput the JSON object now, and nothing else.` }],
   }, "handoff_check");
 
@@ -122,9 +135,9 @@ export async function detectHandoff(systemPrompt: string, draft: string): Promis
  * isn't a JSON object, so callers fail closed. */
 export async function extractJson(systemPrompt: string, userContent: string): Promise<Record<string, unknown> | null> {
   const response = await createMessage({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_CHEAP_MODEL,
     max_tokens: 150,
-    system: systemPrompt,
+    system: cachedSystem(systemPrompt),
     messages: [{ role: "user", content: userContent }],
   }, "extract_json");
   const textBlock = response.content.find((b) => b.type === "text");

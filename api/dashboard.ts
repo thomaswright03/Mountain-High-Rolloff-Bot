@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const nonce = randomBytes(16).toString("base64");
   res.setHeader(
     "Content-Security-Policy",
-    `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
+    `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
   );
   res.setHeader("Content-Type", "text/html; charset=utf-8");
 
@@ -160,6 +160,8 @@ function shell(nonce: string, title: string, body: string, extraCss = "", script
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <title>${escapeHtml(title)}</title>
 <style nonce="${nonce}">${STYLES}${extraCss}</style>
 </head>

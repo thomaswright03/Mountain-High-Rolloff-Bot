@@ -41,10 +41,14 @@ function headers(): Record<string, string> {
   };
 }
 
+/** The parts of GHL's JSON this file reads; everything else is left alone. */
+interface GhlMessage { direction?: string; body?: string; dateAdded: string; userId?: string; status?: string }
+interface GhlContactRef { id?: string; searchAfter?: unknown[] }
+
 export async function getContact(contactId: string): Promise<Record<string, any>> {
   const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}`, { headers: headers() });
   if (!res.ok) throw new Error(`getContact failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { contact: Record<string, unknown> };
   return data.contact;
 }
 
@@ -58,7 +62,7 @@ export async function getContact(contactId: string): Promise<Record<string, any>
  * field), not the human-readable merge-tag name. */
 export function extractCompanyValue(contact: Record<string, any>, fieldKey: string): string | undefined {
   const customField = (contact.customFields ?? []).find(
-    (f: any) => f.key === fieldKey || f.id === fieldKey
+    (f: { key?: string; id?: string; value?: string }) => f.key === fieldKey || f.id === fieldKey
   );
   return customField?.value ?? contact[fieldKey];
 }
@@ -70,7 +74,7 @@ export async function findConversationId(contactId: string, locationId: string):
   const params = new URLSearchParams({ locationId, contactId });
   const res = await ghlFetch(`${baseUrl()}/conversations/search?${params}`, { headers: headers() });
   if (!res.ok) throw new Error(`findConversationId failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { conversations?: Array<{ id?: string }> };
   return data.conversations?.[0]?.id;
 }
 
@@ -108,11 +112,11 @@ export async function getConversationHistory(conversationId: string): Promise<Co
     headers: headers(),
   });
   if (!res.ok) throw new Error(`getConversationHistory failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
-  const messages = data.messages?.messages ?? data.messages ?? [];
+  const data = (await res.json()) as { messages?: { messages?: GhlMessage[] } | GhlMessage[] };
+  const messages: GhlMessage[] = (Array.isArray(data.messages) ? data.messages : data.messages?.messages) ?? [];
   return messages
-    .map((m: any) => ({
-      direction: m.direction === "inbound" ? "inbound" : "outbound",
+    .map((m) => ({
+      direction: m.direction === "inbound" ? ("inbound" as const) : ("outbound" as const),
       body: m.body ?? "",
       dateAdded: m.dateAdded,
       // Confirmed live 2026-07-31 (Stacey Zarate's real thread, Max Garrett
@@ -165,7 +169,7 @@ export async function sendEmail(contactId: string, subject: string, html: string
  * contacts, only the first 100 ever got checked for unanswered replies). */
 export async function findContactsByTag(tag: string, locationId: string): Promise<Record<string, any>[]> {
   const all: Record<string, any>[] = [];
-  let searchAfter: any[] | undefined;
+  let searchAfter: unknown[] | undefined;
 
   while (true) {
     const res = await ghlFetch(`${baseUrl()}/contacts/search`, {
@@ -179,7 +183,7 @@ export async function findContactsByTag(tag: string, locationId: string): Promis
       }),
     });
     if (!res.ok) throw new Error(`findContactsByTag failed: ${res.status} ${await res.text()}`);
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as { contacts?: Array<Record<string, any> & GhlContactRef> };
     const contacts = data.contacts ?? [];
     all.push(...contacts);
 
@@ -197,7 +201,7 @@ export async function findContactIdByEmail(locationId: string, email: string): P
   const qs = new URLSearchParams({ locationId, email });
   const res = await ghlFetch(`${baseUrl()}/contacts/search/duplicate?${qs}`, { headers: headers() });
   if (!res.ok) throw new Error(`findContactIdByEmail failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { contact?: { id?: string } } | null;
   return data?.contact?.id ?? undefined;
 }
 
@@ -213,7 +217,7 @@ export async function upsertContact(fields: Record<string, unknown>): Promise<st
     body: JSON.stringify(fields),
   });
   if (!res.ok) throw new Error(`upsertContact failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { contact?: { id?: string }; id?: string } | null;
   const id = data?.contact?.id ?? data?.id;
   if (!id) throw new Error("upsertContact: no contact id in GHL's response");
   return id;
@@ -257,6 +261,6 @@ export async function addNote(contactId: string, body: string): Promise<void> {
 export async function getNotes(contactId: string): Promise<Array<{ body: string; dateAdded: string }>> {
   const res = await ghlFetch(`${baseUrl()}/contacts/${contactId}/notes`, { headers: headers() });
   if (!res.ok) throw new Error(`getNotes failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as { notes?: Array<{ body: string; dateAdded: string }> };
   return data.notes ?? [];
 }

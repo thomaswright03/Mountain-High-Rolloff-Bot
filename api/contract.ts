@@ -15,6 +15,7 @@ import { loadContract, loadSignature, loadSignedDocument, saveSignature } from "
 import { findCompany } from "../lib/companies.js";
 import { CONTRACT_SIGNED_TAG as SIGNED_TAG, notifyOfficeOrPark } from "../lib/pendingNotices.js";
 import { logEvent } from "../lib/logging.js";
+import { errorMessage } from "../lib/errors.js";
 
 export const CONTRACT_SIGNED_TAG = SIGNED_TAG;
 
@@ -76,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const nonce = randomBytes(16).toString("base64");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src data:; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`
+      `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src 'self' data:; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`
     );
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(renderContractPage(contract, signature, token!, nonce));
@@ -126,9 +127,9 @@ async function handleSign(req: VercelRequest, res: VercelResponse, contract: Con
 
   try {
     await saveSignature(record, buildSignedDocument(contract, record));
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Most likely a second, simultaneous signing attempt losing the race.
-    logEvent({ event: "contract_sign_store_failed", contractId: contract.id, error: err.message });
+    logEvent({ event: "contract_sign_store_failed", contractId: contract.id, error: errorMessage(err) });
     if (await loadSignature(contract.id)) {
       res.status(409).json({ ok: false, error: "This contract is already signed." });
       return;
@@ -167,6 +168,8 @@ function page(title: string, body: string, nonce?: string, extraCss = ""): strin
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <title>${escapeHtml(title)}</title>
 <style${n}>
 :root { --ink: #1c1d1f; --muted: #5d6066; --line: #d9dbe0; --bg: #f6f6f4; --card: #fff; --accent: #2e6b3f; --accent-ink: #fff; --warn-bg: #fff4d6; --warn-line: #d9a400; --err: #b3261e; }

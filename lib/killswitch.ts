@@ -28,7 +28,7 @@ export async function isServiceActive(env: NodeJS.ProcessEnv = process.env): Pro
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return false;
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as { active?: unknown } | null;
     return data?.active === true;
   } catch {
     return false;

@@ -4,6 +4,7 @@ import { isServiceActive } from "./killswitch.js";
 import { pendingNoticeSummary } from "./pendingNotices.js";
 import { readHeartbeat, statusStoreReady, type Heartbeat } from "./runStatus.js";
 import { ROLLOFF_TCPA_CONSENT_CONFIRMED } from "./rollOff.js";
+import { errorMessage } from "./errors.js";
 
 export type Status = "OK" | "Warning" | "Down" | "Unknown";
 export type Tier = "Important" | "Key" | "Basic";
@@ -45,9 +46,9 @@ export interface StatusInputs {
 }
 
 /** Rows that only change when a lead acts: no record yet is Unknown, but not a reason to warn. */
-const EVENT_DRIVEN = new Set(["Bookings signed by text", "Booking email to the office"]);
+const EVENT_DRIVEN = new Set(["Contacts stuck mid-send", "Bookings signed by text", "Booking email to the office"]);
 
-const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup", "booking-signed", "booking-email"];
+const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup", "booking-signed", "booking-email", "rolloff-stuck"];
 
 /** The backup job runs daily; later than this is stale. */
 const BACKUP_WARN_HOURS = 30;
@@ -84,6 +85,7 @@ function jobRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date, wha
   const age = minutesSince(beat.lastRun, now);
   const next = new Date(new Date(beat.lastRun).getTime() + JOB_INTERVAL_MIN * 60_000).toISOString();
   if (!beat.ok) return { ...base, next_expected_run: next, status: "Down", detail: `The last run failed: ${beat.detail}` };
+  if (beat.warning && age <= JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: beat.detail };
   if (beat.paused && age <= JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: `Paused by the kill switch (or its flag couldn't be read): nothing is being sent. ${beat.detail}` };
   if (age > JOB_DOWN_MIN) return { ...base, next_expected_run: next, status: "Down", detail: `No run for ${Math.round(age)} minutes (expected every ${JOB_INTERVAL_MIN}). Last: ${beat.detail}` };
   if (age > JOB_WARN_MIN) return { ...base, next_expected_run: next, status: "Warning", detail: `Last run was ${Math.round(age)} minutes ago (expected every ${JOB_INTERVAL_MIN}). ${beat.detail}` };
@@ -100,9 +102,25 @@ function serviceRow(tier: Tier, name: string, beat: Heartbeat | null, now: Date,
   return { ...base, status: "OK", detail: beat.detail };
 }
 
+/** The next 09:17 UTC (the backup workflow's cron time) after `from`. */
+export function nextBackupRun(from: Date): string {
+  const next = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), 9, 17));
+  if (next.getTime() <= from.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString();
+}
+
+/** Contacts left with the "processing" tag by a send run that died mid-send. The
+ * send job clears stale ones each run; any it could not clear are counted here. */
+function stuckRow(beat: Heartbeat | null): FunctionStatus {
+  const base = { tier: "Key" as Tier, name: "Contacts stuck mid-send", last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: null };
+  if (!beat) return { ...base, status: "Unknown", detail: "The send job hasn't checked for stuck contacts yet." };
+  if (!beat.ok) return { ...base, status: "Warning", detail: `${beat.count ?? "Some"} contact(s) are stuck with the processing tag and could not be released: ${beat.detail}` };
+  return { ...base, status: "OK", detail: beat.detail };
+}
+
 /** Signed contracts are copied out of the Blob store daily (scripts/backupBlobs.ts). */
 function backupRow(beat: Heartbeat | null, now: Date): FunctionStatus {
-  const base = { tier: "Basic" as Tier, name: "Latest backup", last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: null };
+  const base = { tier: "Basic" as Tier, name: "Latest backup", last_checked: beat?.lastRun ?? null, last_success: beat?.lastSuccess ?? null, next_expected_run: beat ? nextBackupRun(new Date(beat.lastRun)) : null };
   if (!beat) return { ...base, status: "Unknown", detail: "No backup has been recorded yet." };
   if (!beat.ok) return { ...base, status: "Down", detail: `The last backup failed: ${beat.detail}` };
   const hours = minutesSince(beat.lastRun, now) / 60;
@@ -152,6 +170,7 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
   rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
   const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
+  rows.push(stuckRow(beats["rolloff-stuck"] ?? null));
   rows.push(backupRow(beats.backup ?? null, now));
   const job = jobRow("Key", "GitHub Actions job", latestRun, now, "scheduled job");
   const jobBad = [importBeat, sendBeat].some((b) => b && !b.ok);
@@ -228,8 +247,8 @@ async function checkBlob(env: NodeJS.ProcessEnv): Promise<{ ok: boolean; detail:
   try {
     await list({ prefix: `${blobFolder("status")}/`, limit: 1 });
     return { ok: true, detail: "The store answered a list request." };
-  } catch (err: any) {
-    return { ok: false, detail: String(err?.message ?? err).slice(0, 200) };
+  } catch (err: unknown) {
+    return { ok: false, detail: String(errorMessage(err) ?? err).slice(0, 200) };
   }
 }
 
@@ -245,7 +264,7 @@ async function checkGhl(env: NodeJS.ProcessEnv): Promise<{ status: Status; detai
     if (res.status === 401) return { status: "Down", detail: "GHL rejected the API token (401)." };
     if (res.status === 403) return { status: "Warning", detail: "GHL is reachable, but this token isn't allowed to read the location (403); texting may still work." };
     return { status: "Down", detail: `GHL answered ${res.status}.` };
-  } catch (err: any) {
-    return { status: "Down", detail: `GHL didn't answer: ${String(err?.message ?? err).slice(0, 150)}` };
+  } catch (err: unknown) {
+    return { status: "Down", detail: `GHL didn't answer: ${String(errorMessage(err) ?? err).slice(0, 150)}` };
   }
 }

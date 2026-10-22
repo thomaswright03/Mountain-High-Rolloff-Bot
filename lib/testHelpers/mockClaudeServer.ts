@@ -13,7 +13,7 @@ export interface MockClaudeServer {
   handoff: boolean;
   /** What the booking extraction returns (lib/rollOffBooking.ts). */
   bookingState: Record<string, unknown>;
-  requests: Array<{ system: string; messages: Array<{ role: string; content: string }> }>;
+  requests: Array<{ system: string; model?: string; cached?: boolean; messages: Array<{ role: string; content: string }> }>;
   close: () => Promise<void>;
 }
 
@@ -35,8 +35,10 @@ export function startMockClaudeServer(): Promise<MockClaudeServer> {
         return;
       }
       const parsed = JSON.parse(body);
-      const system: string = typeof parsed.system === "string" ? parsed.system : "";
-      requests.push({ system, messages: parsed.messages });
+      // The bot sends the system prompt as a cacheable text block; accept a plain string too.
+      const system: string = typeof parsed.system === "string" ? parsed.system : Array.isArray(parsed.system) ? parsed.system.map((b: { text?: string }) => b.text ?? "").join("\n") : "";
+      const cached = Array.isArray(parsed.system) && parsed.system.some((b: { cache_control?: unknown }) => Boolean(b.cache_control));
+      requests.push({ system, messages: parsed.messages, model: parsed.model, cached });
 
       let text: string;
       if (system.includes("hand the") && system.includes("off to a human")) {

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { backupToDirectory, vercelBlobStore } from "../lib/backup.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
+import { errorMessage } from "../lib/errors.js";
 
 // Usage: tsx scripts/backupBlobs.ts <output-dir>
 // Run daily by .github/workflows/backup-blobs.yml, which uploads the folder.
@@ -15,8 +16,8 @@ async function main(): Promise<void> {
     const { files, bytes } = await backupToDirectory(vercelBlobStore, dir);
     console.log(`Backed up ${files} file(s), ${bytes} bytes, to ${dir}`);
     await recordHeartbeat("backup", true, `${files} file(s), ${bytes} bytes copied to a GitHub Actions artifact`);
-  } catch (err: any) {
-    await recordHeartbeat("backup", false, String(err?.message ?? err).slice(0, 200));
+  } catch (err: unknown) {
+    await recordHeartbeat("backup", false, String(errorMessage(err) ?? err).slice(0, 200));
     throw err;
   }
 }

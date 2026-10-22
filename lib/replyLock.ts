@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { createHash } from "node:crypto";
 import { blobFolder } from "./blobNamespace.js";
 import { logEvent } from "./logging.js";
+import { errorMessage } from "./errors.js";
 
 // One reply per inbound text. Two webhook calls for the same message that
 // arrive together both see "last message is inbound", so each claims a
@@ -25,8 +26,8 @@ const vercelBackend: LockBackend = {
         allowOverwrite: false,
       });
       return true;
-    } catch (err: any) {
-      if (/already exists/i.test(String(err?.message))) return false;
+    } catch (err: unknown) {
+      if (/already exists/i.test(String(errorMessage(err)))) return false;
       throw err;
     }
   },
@@ -65,8 +66,8 @@ export async function claimReply(key: string): Promise<boolean> {
   if (!backend.ready()) return true;
   try {
     return await backend.claim(key);
-  } catch (err: any) {
-    logEvent({ event: "reply_lock_failed", error: err?.message });
+  } catch (err: unknown) {
+    logEvent({ event: "reply_lock_failed", error: errorMessage(err) });
     return true;
   }
 }

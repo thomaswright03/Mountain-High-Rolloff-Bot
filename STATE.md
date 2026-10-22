@@ -39,8 +39,19 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - Dashboard labels now booking language; eased motion + reduced-motion on both pages; README documents manual contract use and the eval-commit rule.
 - NOT done: dated model ID (no verified snapshot ID; needs the first eval run), `docs/eval-results.md`, cheaper model/prompt caching (needs eval), browser motion capture.
 
+## Excellence fix round 2 (60 -> ?), 2026-10-22, done in code
+- Prompt caching (`cache_control` on system block, cache tokens logged); handoff + JSON extraction on `CLAUDE_CHEAP_MODEL` (default claude-haiku-5-5, env `CLAUDE_CHEAP_MODEL_ID`), NOT yet validated by eval.
+- Backup row has next_expected_run (next 09:17 UTC). Stuck processing tag: swept each live send run (`releaseStuckProcessingTags`), Key row "Contacts stuck mid-send". Importer: 0 rows => Warning heartbeat.
+- Icons in `public/` (favicon.svg, apple-touch-icon.png), linked on all pages, CSP img-src 'self'.
+- `any` removed from catches (`lib/errors.ts`) and GHL JSON; TODOs moved here. 190 tests, tsc, lint pass.
+- NOT done: MTS fixture test (no saved HTML in the repo or knowledge folder), browser motion capture (no browser), compare model eval, two-part booking SMS (optional).
+
+## Open questions (moved from the company config)
+- Should the agent trust the lead's Serviceable Yes/No/Possibly field or re-derive it from a city list?
+- What should "Prohibit Sales Outside Areas = No" mean for how cautious the AI is about serviceability?
+- Mountain High's standard roll-off terms (overweight, extra days, damage, placement, cancellation) are still missing (`standardTerms: null`).
+
 ## Not done / open
-- Low 13: a stuck `ROLLOFF_PROCESSING_TAG` is still only logged.
 - Medium 9: no live GHL/Blob reads yet (not deployed). MTS scraper fixture needs real HTML.
 - Run `npm run eval` once with a key and commit `docs/eval-results.md`; measure cost per conversation.
 - Admin GHL check calls `/locations/{id}`; confirm the token can read it once GHL is connected.

@@ -9,6 +9,19 @@ export interface UpdateEntry {
 
 export const LATEST_UPDATES: UpdateEntry[] = [
   {
+    date: "2026-10-22 (second round)",
+    frontend: [
+      "/admin, /dashboard and the signing page now show the Mountain High mark as the browser-tab icon (SVG favicon and an iPhone home-screen icon).",
+      "/admin: new \"Contacts stuck mid-send\" row (Warning with a count), and \"Latest backup\" now shows the next expected run.",
+    ],
+    changes: [
+      "Claude calls send the stable system prompt as a cached block and log cache read/write tokens; the yes/no handoff check and JSON extraction use the cheaper Haiku model (not yet validated by npm run eval).",
+      "A contact stranded with the processing tag is released and noted at the start of each live send run, then retried.",
+      "A pick-up run that reads zero rows from the MTS table now shows as a Warning on /admin.",
+      "Error handling and GHL responses are typed instead of any; developer TODOs moved out of the company config.",
+    ],
+  },
+  {
     date: "2026-10-22",
     frontend: [
       "/admin: \"Contracts signable\" is replaced by \"Bookings signed by text\" (Important) and \"Booking email to the office\" (Key), both from recorded results; the old link-signing check is now \"Manual contract signing page\" (Basic) and can't take the overall status down.",

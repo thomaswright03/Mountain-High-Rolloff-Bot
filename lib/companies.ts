@@ -32,11 +32,9 @@ const COMPANIES: CompanyConfig[] = [
       and more) — do NOT use that one; it does not reflect the CEO-confirmed
       real service area above.
       The lead record itself also carries a Serviceable Yes/No/Possibly field —
-      TODO: confirm whether the agent should trust that field directly or
-      re-derive it from a city list.
+      (Open question in STATE.md: trust that field directly or re-derive.)
       "Prohibit Sales Outside Areas" is set to No for this brand (looser than
-      Eastern Waste's Yes) — TODO: confirm what that should mean for how
-      cautious the AI needs to be about serviceability here.
+      Eastern Waste's Yes). (Open question in STATE.md.)
     `.trim(),
     serviceStates: ["CO"],
     // Thomas, 2026-09-29: "don't sign up anyone in loveland anymore".
@@ -127,9 +125,8 @@ const COMPANIES: CompanyConfig[] = [
         // (Thomas's screenshot, 2026-10-21).
         specificDayFee: 100,
         overfillFee: 100,
-        // TODO: Mountain High's own roll-off rental terms (overweight
-        // charges, extra days, damage, placement, cancellation). Until
-        // then every contract says it's a test.
+        // Mountain High's own roll-off rental terms are not provided yet
+        // (open item in STATE.md); until then every contract says it's a test.
         standardTerms: null,
       },
     },

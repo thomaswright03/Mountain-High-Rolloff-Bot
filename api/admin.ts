@@ -78,7 +78,7 @@ async function signIn(req: VercelRequest, res: VercelResponse, password: string 
 
 function sendHtml(res: VercelResponse, code: number, render: (nonce: string) => string): void {
   const nonce = randomBytes(16).toString("base64");
-  res.setHeader("Content-Security-Policy", `default-src 'none'; style-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`);
+  res.setHeader("Content-Security-Policy", `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(code).send(render(nonce));
 }
@@ -126,6 +126,8 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,102,82,
 function shell(nonce: string, title: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <title>${escapeHtml(title)}</title><style nonce="${nonce}">${CSS}</style></head><body>${body}</body></html>`;
 }
 

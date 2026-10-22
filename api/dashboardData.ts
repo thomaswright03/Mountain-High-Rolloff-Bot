@@ -4,6 +4,7 @@ import { aggregateDailyStats, buildDayRange } from "../lib/dashboardStats.js";
 import { funnelStoreReady, loadFunnelActivity, type FunnelActivity } from "../lib/funnelStore.js";
 import { findCompany } from "../lib/companies.js";
 import { logEvent } from "../lib/logging.js";
+import { errorMessage } from "../lib/errors.js";
 
 const BRAND = "Mountain High Disposal";
 /** The page's widest window. Narrower windows are cut from this on the
@@ -39,8 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const activity = storeConnected ? await loadFunnelActivity() : empty;
     const stats = aggregateDailyStats(buildDayRange(DASHBOARD_DAYS, new Date(), company.timezone), activity, company.timezone);
     res.status(200).json({ timezone: company.timezone, stats, notices: notices(storeConnected) });
-  } catch (err: any) {
-    logEvent({ event: "dashboard_data_error", error: err.message });
+  } catch (err: unknown) {
+    logEvent({ event: "dashboard_data_error", error: errorMessage(err) });
     res.status(500).json({ error: "the store didn't answer, try again in a minute." });
   }
 }

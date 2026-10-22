@@ -172,3 +172,35 @@ test("a stale backup warns and then goes down; a fresh one is OK", () => {
   assert.equal(row(40).status, "Warning");
   assert.equal(row(70).status, "Down");
 });
+
+test("the daily backup row names the next 09:17 UTC run", () => {
+  const base = inputs();
+  const t = "2026-10-21T09:20:00Z";
+  const row = buildStatus(inputs({ beats: { ...base.beats, backup: { name: "backup", ok: true, lastRun: t, lastSuccess: t, detail: "12 files" } } })).functions.find((f) => f.name === "Latest backup")!;
+  assert.equal(row.next_expected_run, "2026-10-22T09:17:00.000Z");
+  const before = buildStatus(inputs({ beats: { ...base.beats, backup: { name: "backup", ok: true, lastRun: "2026-10-21T08:00:00Z", lastSuccess: "2026-10-21T08:00:00Z", detail: "" } } })).functions.find((f) => f.name === "Latest backup")!;
+  assert.equal(before.next_expected_run, "2026-10-21T09:17:00.000Z");
+});
+
+test("contacts stuck mid-send show as a Warning with a count; an import that read no rows warns", () => {
+  const base = inputs();
+  const t = base.now.toISOString();
+  const stuck = buildStatus(inputs({ beats: { ...base.beats, "rolloff-stuck": { name: "rolloff-stuck", ok: false, lastRun: t, lastSuccess: null, detail: "3 still tagged", count: 3 } } }));
+  const row = stuck.functions.find((f) => f.name === "Contacts stuck mid-send")!;
+  assert.equal(row.status, "Warning");
+  assert.match(row.detail, /^3 contact/);
+  const empty = buildStatus(inputs({ beats: { ...base.beats, "rolloff-import": { ...base.beats["rolloff-import"]!, lastRun: t, warning: true, detail: "read 0 rows" } } }));
+  assert.equal(empty.functions.find((f) => f.name === "Lead pick-up from MTS")!.status, "Warning");
+  assert.notEqual(empty.overall, "Down");
+});
+
+test("every page links the Mountain High icon, and the icon files exist", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  for (const f of ["api/admin.ts", "api/dashboard.ts", "api/contract.ts"]) {
+    const src = readFileSync(f, "utf8");
+    assert.match(src, /rel="icon" type="image\/svg\+xml" href="\/favicon.svg"/, f);
+    assert.match(src, /rel="apple-touch-icon" href="\/apple-touch-icon.png"/, f);
+  }
+  assert.ok(existsSync("public/favicon.svg") && existsSync("public/apple-touch-icon.png"));
+  assert.match(readFileSync("public/favicon.svg", "utf8"), /^<svg/);
+});

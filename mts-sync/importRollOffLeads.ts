@@ -20,6 +20,7 @@ import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
 import { loginToMts } from "./mtsLogin.js";
+import { errorMessage } from "../lib/errors.js";
 
 const TARGET_COMPANY = "Mountain High Disposal";
 const LIST_URL = "https://kaizen.maxtrackingsolutions.com/rolloffleads/list";
@@ -59,8 +60,8 @@ async function readTable(page: Page, attempts = 3): Promise<RawTable> {
         })),
       };
     });
-  } catch (err: any) {
-    if (attempts <= 1 || !/Execution context was destroyed|navigation/i.test(err.message)) throw err;
+  } catch (err: unknown) {
+    if (attempts <= 1 || !/Execution context was destroyed|navigation/i.test(errorMessage(err))) throw err;
     await page.waitForLoadState("networkidle");
     return readTable(page, attempts - 1);
   }
@@ -193,8 +194,8 @@ export async function run(): Promise<void> {
     const page = await browser.newPage();
     try {
       await loginToMts(page);
-    } catch (err: any) {
-      await recordHeartbeat("mts-login", false, String(err?.message ?? err));
+    } catch (err: unknown) {
+      await recordHeartbeat("mts-login", false, String(errorMessage(err) ?? err));
       throw err;
     }
     await recordHeartbeat("mts-login", true, "logged in");
@@ -212,13 +213,21 @@ export async function run(): Promise<void> {
   for (const lead of leads.slice(0, IMPORT_CAP)) {
     try {
       if ((await importLead(lead, { dryRun, now })) === "imported") imported++;
-    } catch (err: any) {
-      logEvent({ event: "rolloff_import_error", mtsId: lead.mtsId, error: err.message });
+    } catch (err: unknown) {
+      logEvent({ event: "rolloff_import_error", mtsId: lead.mtsId, error: errorMessage(err) });
       errored++;
     }
   }
   console.log(`Done. Picked up: ${imported}, errored: ${errored}${dryRun ? " (DRY_RUN: nothing written to GHL)" : ""}`);
-  await recordHeartbeat("rolloff-import", errored === 0, `${dryRun ? "test mode: " : ""}read ${rows.length} rows, picked up ${imported}, errored ${errored}`);
+  // An empty table is how a changed MTS page would look: surface it instead of quietly picking up nothing.
+  const noRows = rows.length === 0;
+  await recordHeartbeat(
+    "rolloff-import",
+    errored === 0,
+    `${dryRun ? "test mode: " : ""}read ${rows.length} rows, picked up ${imported}, errored ${errored}${noRows ? ". The leads table had no rows: check the MTS page layout hasn't changed." : ""}`,
+    new Date(),
+    noRows ? { warning: true } : {}
+  );
   if (errored > 0) process.exitCode = 1;
 }
 
@@ -228,7 +237,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
   run().catch(async (err) => {
     console.error(err);
-    await recordHeartbeat("rolloff-import", false, `crashed: ${err?.message ?? err}`);
+    await recordHeartbeat("rolloff-import", false, `crashed: ${errorMessage(err) ?? err}`);
     process.exit(1);
   });
 }

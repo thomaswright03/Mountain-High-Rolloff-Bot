@@ -7,11 +7,13 @@ import { handleRollOffReply } from "../lib/rollOffReply.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
 import type { InboundMessage } from "../lib/types.js";
+import { errorMessage } from "../lib/errors.js";
 
 /** Same payload shapes the Kaizen lead-responder webhook accepts, so one
  * GHL "Customer Replied" workflow action can point at either service. */
-function parsePayload(raw: any): InboundMessage {
-  const customData = raw.customData ?? {};
+type RawPayload = Record<string, any>; // GHL's webhook body shape varies by workflow action
+function parsePayload(raw: RawPayload): InboundMessage {
+  const customData: RawPayload = raw.customData ?? {};
   return {
     contactId: customData.contact_id ?? raw.contact_id ?? raw.contactId,
     conversationId: customData.conversation_id ?? raw.conversation_id ?? raw.conversationId,
@@ -71,8 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const [result] = await Promise.all([handleRollOffReply(inbound, contact), recordFunnelEvent("responded", inbound.contactId)]);
     await recordHeartbeat("replies", true, `last reply handled: ${result.action}`);
     res.status(200).json({ ok: true, flow: "rolloff", ...result });
-  } catch (err: any) {
-    logEvent({ event: "error", contactId: inbound.contactId, error: err.message });
+  } catch (err: unknown) {
+    logEvent({ event: "error", contactId: inbound.contactId, error: errorMessage(err) });
     await recordHeartbeat("replies", false, "last reply failed (see the Vercel logs)");
     // Best-effort: if the failure was inside a GHL call, this may fail too,
     // but it's worth trying so a person sees the contact stalled.
@@ -80,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (process.env.DRY_RUN !== "true") {
       try {
         await addTag(inbound.contactId, "ai-needs-human");
-        await addNote(inbound.contactId, `AI hit an error and could not reply: ${err.message}`);
+        await addNote(inbound.contactId, `AI hit an error and could not reply: ${errorMessage(err)}`);
       } catch {
         // swallow: the original error is already logged
       }
