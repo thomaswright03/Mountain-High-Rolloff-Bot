@@ -61,7 +61,10 @@ export function normalizePhone(raw: string | undefined): string | null {
 export function parseAddress(raw: string): { address1: string; city: string; state: string; postalCode: string } | null {
   const m = raw.replace(/\s+/g, " ").trim().match(/^(.*),\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5})(?:-\d{4})?$/);
   if (!m) return null;
-  return { address1: m[1]!.trim(), city: m[2]!.trim(), state: m[3]!.toUpperCase(), postalCode: m[4]! };
+  // MTS sometimes keeps junk after a pipe in the city, e.g.
+  // "Aurora|co|120, CO 80015" (real row, 2026-10-21). Only the part before
+  // it is the city, which also keeps the Loveland check working.
+  return { address1: m[1]!.trim(), city: m[2]!.split("|")[0]!.trim(), state: m[3]!.toUpperCase(), postalCode: m[4]! };
 }
 
 function dayInZone(date: Date, timezone: string): string {

@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<!--[if IE 9 ]><html class="ie ie9" lang="en" class="no-js"> <![endif]-->
+<!--[if !(IE)]><!-->
+<html lang="en">
+<!--<![endif]-->
+<head>
+<!-- Saved from MTS /rolloffleads/list on 2026-10-22. Scripts and styles removed; every lead's name, phone, email, street and id replaced with fakes. Dates, cities, zips, statuses and address formatting are as MTS showed them. -->
+    <title>Manage Roll-Off Leads | Max Tracking Solutions Administration</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no, user-scalable=no, minimal-ui">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <!-- Call App Mode on ios devices -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <!-- Remove Tap Highlight on Windows Phone IE -->
+    <meta name="msapplication-tap-highlight" content="no">
+
+</head>
+<body class="mod-bg-1" data-minify-in-settings="True">
+
+<div class="page-wrapper">
+    <div class="page-inner">
+    <aside class="page-sidebar">
+        <div class="page-logo">
+<a href="/" class="page-logo-link press-scale-down d-flex align-items-center position-relative">
+    
+</a>
+<a class="minify-nav-button un-minify" data-class="nav-function-minify">
+    <i class="fal fa-sidebar fa-xl" style="color: #969696"></i>
+</a>
+<span class="float-right ml-5 d-flex align-items-center hidden-nav-function-minify">
+    <a href="#" title="Notifications" class="ml-5" data-toggle="modal" data-target=".js-modal-settings">
+        <i class="fal fa-bell fa-lg" style="color: #969696"></i>
+    </a>
+    <a href="#" title="Settings" class="ml-4" data-toggle="modal" data-target=".js-modal-settings">
+        <i class="fal fa-cog fa-lg" style="color: #969696"></i>
+    </a>
+    <a href="#" title="Hide Sidebar" class="minify-nav-button ml-4 d-flex align-items-center justify-content-center" data-class="nav-function-minify">
+        <i class="fal fa-sidebar fa-xl" style="color: #969696"></i>
+    </a>
+</span>
+<h1 class="sr-only">Max Tracking Solutions Administration Dashboard</h1>
+        </div>
+        <!-- BEGIN PRIMARY NAVIGATION -->
+        <nav id="js-primary-nav" class="primary-nav" role="navigation">
+            <ul id="js-nav-menu" class="nav-menu">
+                
+        <li class="">
+                <a href="/" data-filter-tags="dashboard" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-tachometer fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Dashboard</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/map" data-filter-tags="map" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-map fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Map</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="active">
+                <a href="#" title="Leads" data-filter-tags="leads" class="waves-effect waves-themed" >
+                        <i class="fal fa-file-alt fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Leads</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/leads/list" data-filter-tags="residential leads" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-address-card fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Residential Leads</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="active">
+                <a href="/rolloffleads/list" data-filter-tags="roll-off leads" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-address-card fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Roll-Off Leads</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Sales" data-filter-tags="sales" class="waves-effect waves-themed" >
+                        <i class="fal fa-file-alt fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Sales</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/contract/list" data-filter-tags="residential contracts" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-file-alt fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Residential Contracts</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/contract/add" title="Add Residential Contract"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/rolloffcontract/list" data-filter-tags="roll-off contracts" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-file-alt fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Roll-Off Contracts</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/rolloffcontract/add" title="Add Roll-Off Contract"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/BinDeliveries/list" data-filter-tags="bin deliveries" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-truck fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Bin Deliveries</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/leaderboard/list" data-filter-tags="leaderboard" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-users-crown fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Leaderboard</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Commissions / Payroll" data-filter-tags="commissions / payroll" class="waves-effect waves-themed" >
+                        <i class="fal fa-money-check-edit-alt fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Commissions / Payroll</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/commission/list" data-filter-tags="commissions" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-sack-dollar fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Commissions</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/commission/add" title="Add Commission"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/expenses/list" data-filter-tags="expenses" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal far fa-money-check-edit fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Expenses</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/expenses/add" title="Add Expense"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/payroll/list" data-filter-tags="payroll" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-money-check-edit-alt fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Payroll</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/payroll/add" title="Add Payroll"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Customers" data-filter-tags="customers" class="waves-effect waves-themed" >
+                        <i class="fal fa-user fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Customers</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/customer/list" data-filter-tags="customers" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-user fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Customers</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/customerimport/list" title="Import Customer"><i class="far fa-file-import"></i></span>
+               </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/customer/blacklistedmappinlist" data-filter-tags="blacklisted map pins" data-message="" class="waves-effect waves-themed" >
+
+                        <i class="fal fa-skull-crossbones fal-fw hidden-nav-function-minify"></i>
+                    <span class="nav-link-text" data-i18n="">Blacklisted Map Pins</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/customer/addblacklistedmappin" title="Add Blacklisted Customer"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Reports" data-filter-tags="reports" class="waves-effect waves-themed" >
+                        <i class="fal fa-chart-bar fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Reports</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="#" title="Companies" data-filter-tags="companies" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">Companies</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/reports/company/dailycontractlist" data-filter-tags="daily contract list" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Daily Contract List</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/reports/custom" data-filter-tags="custom reports" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Custom Reports</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="nav-title">Settings</li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Maintenance" data-filter-tags="maintenance" class="waves-effect waves-themed" >
+                        <i class="fal fa-cogs fal-fw "></i>
+                    <span class="nav-link-text" data-i18n="">Maintenance</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="#" title="Application" data-filter-tags="application" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">Application</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/maintenance/config/edit" data-filter-tags="application settings" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Application Settings</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/automationjob/list" data-filter-tags="automation jobs" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Automation Jobs</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/emaillog/list" data-filter-tags="email logs" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Email Logs</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/exporthistory/list" data-filter-tags="export histories" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Export Histories</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/processinglog/list" data-filter-tags="processing logs" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Processing Logs</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/company/list" data-filter-tags="companies" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Companies</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="General" data-filter-tags="general" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">General</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/maintenance/dashboard/list" data-filter-tags="dashboards" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Dashboards</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/imagelibrary/list" data-filter-tags="image library" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Image Library</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/payscale/list" data-filter-tags="pay scales" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Pay Scales</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Sales" data-filter-tags="sales" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">Sales</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/maintenance/leadstatus/list" data-filter-tags="lead statuses" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Lead Statuses</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/salesmedium/list" data-filter-tags="mediums" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Mediums</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Sales Reps" data-filter-tags="sales reps" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">Sales Reps</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/maintenance/grouptype/list" data-filter-tags="group types" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Group Types</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/group/list" data-filter-tags="groups" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Groups</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/areatype/list" data-filter-tags="territory types" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Territory Types</span>
+                                   </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="#" title="Security" data-filter-tags="security" class="waves-effect waves-themed" >
+                    <span class="nav-link-text" data-i18n="">Security</span>
+                </a>
+                <ul>
+                    
+        <li class="">
+                <a href="/maintenance/securityrole/list" data-filter-tags="security roles" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Security Roles</span>
+                                   </a>
+        </li>
+
+
+
+
+        <li class="">
+                <a href="/maintenance/user/list" data-filter-tags="users" data-message="" class="waves-effect waves-themed" >
+
+                    <span class="nav-link-text" data-i18n="">Users</span>
+                                            <span class="dl-ref hidden-nav-function-minify menu-right-button ml-1" data-link-url="https://kaizen.maxtrackingsolutions.com/maintenance/user/add" title="Add User"><i class="far fa-plus-circle"></i></span>
+               </a>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+                </ul>
+        </li>
+
+
+
+
+            </ul>
+        </nav>
+        <!-- END PRIMARY NAVIGATION -->
+        <!-- NAV FOOTER -->
+        <div class="nav-footer shadow-top">
+            <div class="btn-group" style="width: 100%">
+                <div class="nav-footer-profile m-2 bg-primary-900 rounded" data-toggle="dropdown" aria-expanded="false">
+                    <div class="profile-button-container">
+                        <span class="rounded-image">
+                            <span class="rounded-circle" style="background-image: url('/Blob/profile-picture-display/SzNiT3dBMzV3RE090?h=30&amp;w=30')"></span>
+                        </span>
+                        <span class="hidden-nav-function-minify" style="color: #bdbdbd">Test User</span>
+                        <b class="profile-button-chevron collapse-sign hidden-nav-function-minify">
+                            <em class="fal fa-angle-down"></em>
+                        </b>
+                    </div>
+                </div>
+                <div class="dropdown-menu mb-2">
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target=".js-modal-settings">Settings</a>
+                        <a class="dropdown-item popup" href="/maintenance/User/ChangePassword" data-popup-height="550px" data-popup-width="500px" data-popup-top="5px">
+                            Change Password <i class="fal fa-lock ml-2"></i>
+                        </a>
+                                                                <a class="dropdown-item confirm-action" style="color: red;" data-confirm-msg="Are you sure you want to logout?" href="/Security/Logout">
+                            Logout <i class="fal fa-power-off ml-2"></i>
+                        </a>
+                </div>
+            </div>
+        </div> <!-- END NAV FOOTER -->
+    </aside>
+
+        <div class="page-content-wrapper">
+            <!-- the #js-page-content id is needed for some plugins to initialize -->
+            <main id="js-page-content" role="main" class="page-content">
+                <div class="content">
+                    <div class="main-header">
+                        <div class="clearfix">
+                            <div class="hidden-lg-up" style="float:left;">
+                                <a href="#" class="header-btn btn press-scale-down waves-effect waves-themed" data-action="toggle" data-class="mobile-nav-on">
+                                    <i class="ni ni-menu"></i>
+                                </a>
+                            </div>
+                                <h2 style="display: flex; flex-flow: row wrap; align-items: center; float: left;">
+                                    <span id="LayoutTitleHeaderPrefixImage">
+                                    </span>
+                                    <span id="PageTitleDiv">
+                                        Manage Roll-Off Leads
+                                    </span>
+                                    <span id="LayoutTitleHeaderSuffixImage" class="pl-2">
+                                    </span>
+                                </h2>
+                            <div class="pull-right">
+                                
+                            </div>
+                        </div>
+                        <em></em>
+                    </div>
+                </div>
+                
+<form action="/rolloffleads/list" method="post">    <div class="form-buttons clearfix">
+            <a href="/rolloffleads/add" class="btn btn-primary btn-sm">
+                <i class="far fa-plus-circle"></i>
+                Add New
+            </a>
+                    <a class="btn btn-secondary btn-sm" href="/rolloffleads/export?format=xlsx">
+                <i class="far fa-file-export"></i> Export
+            </a>
+        <div class="btn-group pull-right page-selector">
+            <span class='page-level'>Records:</span> <select class="auto-submit form-control" data-val="true" data-val-number="The field Page must be a number." id="SearchCriteria_Page" name="SearchCriteria.Page" style="width:auto;"><option selected="selected" value="0">1 - 25 of 810</option>
+<option value="1">26 - 50 of 810</option>
+<option value="2">51 - 75 of 810</option>
+<option value="3">76 - 100 of 810</option>
+<option value="4">101 - 125 of 810</option>
+<option value="5">126 - 150 of 810</option>
+<option value="6">151 - 175 of 810</option>
+<option value="7">176 - 200 of 810</option>
+<option value="8">201 - 225 of 810</option>
+<option value="9">226 - 250 of 810</option>
+<option value="10">251 - 275 of 810</option>
+<option value="11">276 - 300 of 810</option>
+<option value="12">301 - 325 of 810</option>
+<option value="13">326 - 350 of 810</option>
+<option value="14">351 - 375 of 810</option>
+<option value="15">376 - 400 of 810</option>
+<option value="16">401 - 425 of 810</option>
+<option value="17">426 - 450 of 810</option>
+<option value="18">451 - 475 of 810</option>
+<option value="19">476 - 500 of 810</option>
+<option value="20">501 - 525 of 810</option>
+<option value="21">526 - 550 of 810</option>
+<option value="22">551 - 575 of 810</option>
+<option value="23">576 - 600 of 810</option>
+<option value="24">601 - 625 of 810</option>
+<option value="25">626 - 650 of 810</option>
+<option value="26">651 - 675 of 810</option>
+<option value="27">676 - 700 of 810</option>
+<option value="28">701 - 725 of 810</option>
+<option value="29">726 - 750 of 810</option>
+<option value="30">751 - 775 of 810</option>
+<option value="31">776 - 800 of 810</option>
+<option value="32">801 - 810 of 810</option>
+</select> <select class="auto-submit form-control" data-val="true" data-val-number="The field RecordsPerPage must be a number." id="SearchCriteria_RecordsPerPage" name="SearchCriteria.RecordsPerPage" style="width:auto;"><option selected="selected" value="25">Show 25</option>
+<option value="50">Show 50</option>
+<option value="100">Show 100</option>
+</select><a href='#' class='page-list-change pt-1' data-page-to='1'><i style='font-size: 1.5em' class='far fa-angle-double-right fa-lg color-primary-500'></i></a>
+        </div>
+    </div>
+    <div id="panel-1" class="panel" data-panel-fullscreen="false" data-panel-close="false" data-panel-refresh="false">
+        <div class="panel-container collapse show">
+            <div class="panel-content no-padding">
+                <div class="form-inline search-box">
+                    <div class="clearfix">
+                        <div class="form-group">
+                            <label for="SearchCriteria_SearchText">Search:</label>
+                            <i class="far fa-question-circle cursor-pointer color-primary-500" title="This will search on the following fields: First Name, Last Name, Address Line 1, City, State, Zip, Phone Number"></i>
+                            <input class="form-control" id="SearchCriteria_SearchText" name="SearchCriteria.SearchText" type="text" value="" />
+                        </div>
+                        <div class="form-group">
+                            <label for="SearchCriteria_CompanyId">Company:</label>
+                            <select class="form-control auto-submit" data-val="true" data-val-number="The field CompanyId must be a number." id="SearchCriteria_CompanyId" name="SearchCriteria.CompanyId"><option value=""></option>
+<option value="8">Eastern Waste &amp; Recycling</option>
+<option value="3">Mountain High Disposal</option>
+<option value="11">Garden State Bin Cleaning</option>
+</select>
+                        </div>
+                        <div class="form-group">
+                            <input id="SearchCriteria_ClearSalesMedium" name="SearchCriteria.ClearSalesMedium" type="hidden" value="False" />
+                            <label for="SearchCriteria_SalesMediumId">Sales Medium:</label>
+                            <select class="form-control auto-submit" data-val="true" data-val-number="The field SalesMediumId must be a number." id="SearchCriteria_SalesMediumId" name="SearchCriteria.SalesMediumId"><option value=""></option>
+<option value="1">Door to Door</option>
+<option value="2">Website Signup</option>
+<option value="3">Social Media</option>
+<option value="5">Social Media Signup</option>
+</select>
+                        </div>
+                        <div class="form-group">
+                            <input id="SearchCriteria_ClearSource" name="SearchCriteria.ClearSource" type="hidden" value="False" />
+                            <label for="SearchCriteria_Source">Source:</label>
+                            <input class="form-control" id="SearchCriteria_Source" name="SearchCriteria.Source" type="text" value="" />
+                        </div>
+                        <div class="form-group">
+                            <input id="SearchCriteria_ClearServiceable" name="SearchCriteria.ClearServiceable" type="hidden" value="False" />
+                            <label for="SearchCriteria_Serviceable">Serviceable:</label>
+                            <select class="form-control bootstrap-multi-select" id="SearchCriteria_Serviceable" multiple="multiple" name="SearchCriteria.Serviceable"><option selected="selected" value="Y">Yes</option>
+<option value="N">No</option>
+<option selected="selected" value="P">Possibly</option>
+<option value="*">Unknown</option>
+</select>
+                        </div>
+                        <div class="form-group">
+                            <input id="SearchCriteria_ClearStatus" name="SearchCriteria.ClearStatus" type="hidden" value="False" />
+                            <label for="SearchCriteria_LeadStatusIds">Status:</label>
+                            <select class="form-control bootstrap-multi-select" id="SearchCriteria_LeadStatusIds" multiple="multiple" name="SearchCriteria.LeadStatusIds"><option selected="selected" value="1">New</option>
+<option selected="selected" value="2">Follow-Up</option>
+<option value="9">New (1st Attempt)</option>
+<option value="10">New (2nd Attempt)</option>
+<option value="11">New (3rd Attempt)</option>
+<option value="12">New (4th Attempt)</option>
+<option value="6">No Answer (5 Calls)</option>
+<option value="3">Not Interested</option>
+<option value="7">Existing Customer</option>
+<option value="4">Sold</option>
+<option value="8">Abandoned Cart</option>
+</select>
+                        </div>
+                        <div class="clearfix">
+                            <div class="form-group">
+                                <button id="Search" type="submit" name="submit_action" value="Search" class="btn btn-primary btn-sm" style="margin-right: 10px;">
+                                    <i class="far fa-search"></i>
+                                    Search
+                                </button>
+                                <button type="submit" name="submit_action" value="Clear" class="btn btn-secondary btn-sm">
+                                    <i class="far fa-minus-circle"></i>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix">
+                    <table class="table table-sorting table-striped table-hover table-responsive"><thead class="thead-themed border-top"><tr><th class="sort_desc"><a href="/rolloffleads/list?Column=ReceivedDate&amp;Direction=Ascending">Date</a></th><th><a href="/rolloffleads/list?Column=Company&amp;Direction=Descending">Company</a></th><th><a href="/rolloffleads/list?Column=SalesMediumId&amp;Direction=Descending">Sales Medium</a></th><th><a href="/rolloffleads/list?Column=Source&amp;Direction=Descending">Source</a></th><th><a href="/rolloffleads/list?Column=FullName&amp;Direction=Descending">Name</a></th><th><a href="/rolloffleads/list?Column=PhoneNumber&amp;Direction=Descending">Phone Number</a></th><th><a href="/rolloffleads/list?Column=Email&amp;Direction=Descending">Email</a></th><th>Address</th><th><a href="/rolloffleads/list?Column=Serviceable&amp;Direction=Descending">Serviceable</a></th><th><a href="/rolloffleads/list?Column=Status&amp;Direction=Descending">Status</a></th><th>Note</th><th class="action-column" style="white-space:nowrap;"><a href="/rolloffleads/list?Direction=Descending"></a></th><th class="action-column" style="white-space:nowrap;"><a href="/rolloffleads/list?Direction=Descending"></a></th><th class="action-column"><a href="/rolloffleads/list?Direction=Descending"></a></th></tr></thead><tbody class="border-top"><tr class="gridrow"><td>10/21/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead1 Tester</td><td>    <a href="tel:9705550001">9705550001</a>
+</td><td>    <a href="mailto:lead1@example.com">lead1@example.com</a>
+</td><td>        <div>
+            100 Test Street, Aurora, CO 80012
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID01">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID01" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID01" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID01" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/21/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead2 Tester</td><td>    <a href="tel:9705550002">9705550002</a>
+</td><td>    <a href="mailto:lead2@example.com">lead2@example.com</a>
+</td><td>        <div>
+            200 Test Street, Aurora|co|120, CO 80015-2036
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID02">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID02" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID02" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID02" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/21/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead3 Tester</td><td>    <a href="tel:9705550003">9705550003</a>
+</td><td>    <a href="mailto:lead3@example.com">lead3@example.com</a>
+</td><td>        <div>
+            300 Test Street, Greeley, CO 80634
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID03">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID03" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID03" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID03" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/21/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead4 Tester</td><td>    <a href="tel:9705550004">9705550004</a>
+</td><td>    <a href="mailto:lead4@example.com">lead4@example.com</a>
+</td><td>        <div>
+            400 Test Street, Aurora, CO 80017
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID04">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID04" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID04" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID04" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/21/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead5 Tester</td><td>    <a href="tel:9705550005">9705550005</a>
+</td><td>    <a href="mailto:lead5@example.com">lead5@example.com</a>
+</td><td>        <div>
+            500 Test Street, Aurora, CO 80012
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID05">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID05" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID05" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID05" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/20/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead6 Tester</td><td>    <a href="tel:9705550006">9705550006</a>
+</td><td>    <a href="mailto:lead6@example.com">lead6@example.com</a>
+</td><td>        <div>
+            600 Test Street, Denver, CO 80221
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID06">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID06" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID06" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID06" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/20/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead7 Tester</td><td>    <a href="tel:9705550007">9705550007</a>
+</td><td>    <a href="mailto:lead7@example.com">lead7@example.com</a>
+</td><td>        <div>
+            700 Test Street, Aurora, CO 80011
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID07">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID07" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID07" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID07" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/19/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead8 Tester</td><td>    <a href="tel:9705550008">9705550008</a>
+</td><td>    <a href="mailto:lead8@example.com">lead8@example.com</a>
+</td><td>        <div>
+            800 Test Street, Aurora, CO 80011
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID08">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID08" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID08" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID08" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/17/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead9 Tester</td><td>    <a href="tel:9705550009">9705550009</a>
+</td><td>    <a href="mailto:lead9@example.com">lead9@example.com</a>
+</td><td>        <div>
+            900 Test Street, Littleton, CO 80123
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID09">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID09" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID09" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID09" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/17/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead10 Tester</td><td>    <a href="tel:9705550010">9705550010</a>
+</td><td>    <a href="mailto:lead10@example.com">lead10@example.com</a>
+</td><td>        <div>
+            1000 Test Street, Greeley, CO 80631
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID10">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID10" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID10" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID10" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/16/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead11 Tester</td><td>    <a href="tel:9705550011">9705550011</a>
+</td><td>    <a href="mailto:lead11@example.com">lead11@example.com</a>
+</td><td>        <div>
+            1100 Test Street, Englewood, CO 80113
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID11">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID11" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID11" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID11" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/16/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead12 Tester</td><td>    <a href="tel:9705550012">9705550012</a>
+</td><td>    <a href="mailto:lead12@example.com">lead12@example.com</a>
+</td><td>        <div>
+            1200 Test Street, Aurora, CO 80012
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID12">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID12" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID12" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID12" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/16/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead13 Tester</td><td>    <a href="tel:9705550013">9705550013</a>
+</td><td>    <a href="mailto:lead13@example.com">lead13@example.com</a>
+</td><td>        <div>
+            1300 Test Street, Aurora, CO 80013
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID13">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID13" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID13" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID13" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/16/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead14 Tester</td><td>    <a href="tel:9705550014">9705550014</a>
+</td><td>    <a href="mailto:lead14@example.com">lead14@example.com</a>
+</td><td>        <div>
+            1400 Test Street, Aurora, CO 80013
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID14">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID14" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID14" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID14" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/16/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead15 Tester</td><td>    <a href="tel:9705550015">9705550015</a>
+</td><td>    <a href="mailto:lead15@example.com">lead15@example.com</a>
+</td><td>        <div>
+            1500 Test Street, Littleton, CO 80128
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID15">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID15" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID15" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID15" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/15/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead16 Tester</td><td>    <a href="tel:9705550016">9705550016</a>
+</td><td>    <a href="mailto:lead16@example.com">lead16@example.com</a>
+</td><td>        <div>
+            1600 Test Street, Aurora, CO 80013
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID16">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID16" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID16" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID16" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/14/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead17 Tester</td><td>    <a href="tel:9705550017">9705550017</a>
+</td><td>    <a href="mailto:lead17@example.com">lead17@example.com</a>
+</td><td>        <div>
+            1700 Test Street, Aurora, CO 80010
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID17">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID17" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID17" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID17" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/13/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead18 Tester</td><td>    <a href="tel:9705550018">9705550018</a>
+</td><td>    <a href="mailto:lead18@example.com">lead18@example.com</a>
+</td><td>        <div>
+            1800 Test Street, Greeley, CO 80634
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID18">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID18" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID18" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID18" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/13/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead19 Tester</td><td>    <a href="tel:9705550019">9705550019</a>
+</td><td>    <a href="mailto:lead19@example.com">lead19@example.com</a>
+</td><td>        <div>
+            1900 Test Street, Aurora, CO 80013
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID19">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID19" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID19" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID19" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/13/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead20 Tester</td><td>    <a href="tel:9705550020">9705550020</a>
+</td><td>    <a href="mailto:lead20@example.com">lead20@example.com</a>
+</td><td>        <div>
+            2000 Test Street, Greeley, CO 80631
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID20">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID20" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID20" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID20" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/13/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead21 Tester</td><td>    <a href="tel:9705550021">9705550021</a>
+</td><td>    <a href="mailto:lead21@example.com">lead21@example.com</a>
+</td><td>        <div>
+            2100 Test Street, Wheat Ridge, CO 80033
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID21">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID21" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID21" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID21" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/12/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead22 Tester</td><td>    <a href="tel:9705550022">9705550022</a>
+</td><td>    <a href="mailto:lead22@example.com">lead22@example.com</a>
+</td><td>        <div>
+            2200 Test Street, Denver, CO 80122
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID22">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID22" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID22" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID22" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/12/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead23 Tester</td><td>    <a href="tel:9705550023">9705550023</a>
+</td><td>    <a href="mailto:lead23@example.com">lead23@example.com</a>
+</td><td>        <div>
+            2300 Test Street, Littleton, CO 80128
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID23">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID23" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID23" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID23" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow_alternate"><td>10/12/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead24 Tester</td><td>    <a href="tel:9705550024">9705550024</a>
+</td><td>    <a href="mailto:lead24@example.com">lead24@example.com</a>
+</td><td>        <div>
+            2400 Test Street, Greeley, CO 80631
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID24">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID24" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID24" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID24" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr><tr class="gridrow"><td>10/12/2026</td><td>Mountain High Disposal</td><td>        <span class="badge" style="background-color: #004a86; color: #ffffff;">
+            Website Signup
+        </span>
+</td><td>Website</td><td>Lead25 Tester</td><td>    <a href="tel:9705550025">9705550025</a>
+</td><td>    <a href="mailto:lead25@example.com">lead25@example.com</a>
+</td><td>        <div>
+            2500 Test Street, La Salle, CO 80645
+                <a target="_blank" href="/map?rollOffLeadId=FAKEID25">
+                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                </a>
+        </div>
+</td><td>Yes</td><td>        <span class="badge" style="background-color: #00C8FF; color: #000000;">
+            New
+        </span>
+</td><td></td><td class="action-column" style="white-space:nowrap;">        <a href="/rolloffcontract/add?lead=FAKEID25" title="Create Contract">
+            <i class="far fa-file-plus fa-lg"></i>
+        </a>
+</td><td class="action-column" style="white-space:nowrap;">    <a href="/rolloffleads/view/FAKEID25" title="View Lead">
+        <i class="far fa-edit fa-lg"></i>
+
+    </a>
+</td><td class="action-column">        <a href="/RollOffLeads/Delete/FAKEID25" onclick="javascript:return confirm('Are you sure you want to delete?');">
+            <i class="far fa-times-circle fa-lg"></i>
+        </a>
+</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="form-buttons clearfix">
+        <div class="btn-group pull-right page-selector">
+            <span class='page-level'>Records:</span> <select class="form-control" id="SearchCriteria_Page2" name="SearchCriteria.Page" onchange="$(&#39;#SearchCriteria_Page&#39;).val($(&#39;#SearchCriteria_Page2&#39;).val());$(&#39;#SearchCriteria_Page&#39;).closest(&#39;form&#39;).submit();" style="width:auto;"><option selected="selected" value="0">1 - 25 of 810</option>
+<option value="1">26 - 50 of 810</option>
+<option value="2">51 - 75 of 810</option>
+<option value="3">76 - 100 of 810</option>
+<option value="4">101 - 125 of 810</option>
+<option value="5">126 - 150 of 810</option>
+<option value="6">151 - 175 of 810</option>
+<option value="7">176 - 200 of 810</option>
+<option value="8">201 - 225 of 810</option>
+<option value="9">226 - 250 of 810</option>
+<option value="10">251 - 275 of 810</option>
+<option value="11">276 - 300 of 810</option>
+<option value="12">301 - 325 of 810</option>
+<option value="13">326 - 350 of 810</option>
+<option value="14">351 - 375 of 810</option>
+<option value="15">376 - 400 of 810</option>
+<option value="16">401 - 425 of 810</option>
+<option value="17">426 - 450 of 810</option>
+<option value="18">451 - 475 of 810</option>
+<option value="19">476 - 500 of 810</option>
+<option value="20">501 - 525 of 810</option>
+<option value="21">526 - 550 of 810</option>
+<option value="22">551 - 575 of 810</option>
+<option value="23">576 - 600 of 810</option>
+<option value="24">601 - 625 of 810</option>
+<option value="25">626 - 650 of 810</option>
+<option value="26">651 - 675 of 810</option>
+<option value="27">676 - 700 of 810</option>
+<option value="28">701 - 725 of 810</option>
+<option value="29">726 - 750 of 810</option>
+<option value="30">751 - 775 of 810</option>
+<option value="31">776 - 800 of 810</option>
+<option value="32">801 - 810 of 810</option>
+</select> <select class="form-control" id="SearchCriteria_RecordsPerPage2" name="SearchCriteria.RecordsPerPage" onchange="$(&#39;#SearchCriteria_RecordsPerPage&#39;).val($(&#39;#SearchCriteria_RecordsPerPage2&#39;).val());$(&#39;#listForm&#39;).submit();" style="width:auto;"><option selected="selected" value="25">Show 25</option>
+<option value="50">Show 50</option>
+<option value="100">Show 100</option>
+</select><a href='#' class='page-list-change pt-1' data-page-to='1'><i style='font-size: 1.5em' class='far fa-angle-double-right fa-lg color-primary-500'></i></a>
+        </div>
+    </div>
+</form>
+
+
+
+            </main>
+            <!-- this overlay is activated only when mobile menu is triggered -->
+            <div class="page-content-overlay" data-action="toggle" data-class="mobile-nav-on"></div>
+
+
+
+<footer class="page-footer text-center" role="contentinfo">
+    <div class="d-flex align-items-center flex-1 text-muted">
+        <span class="hidden-md-down fw-700">Max Tracking Solutions Administration | 2026.9.14.1254 | 0.0.0.0 | HOST</span>
+    </div>
+</footer>
+
+
+
+<nav class="shortcut-menu d-none d-sm-block">
+    <input type="checkbox" class="menu-open" name="menu-open" id="menu_open" />
+    <label for="menu_open" class="menu-open-button ">
+        <span class="app-shortcut-icon d-block"></span>
+    </label>
+    <a href="#" class="menu-item btn" data-toggle="tooltip" data-placement="left" title="Scroll Top">
+        <i class="fal fa-arrow-up"></i>
+    </a>
+    <a href="#" class="menu-item btn" data-action="app-fullscreen" data-toggle="tooltip" data-placement="left" title="Full Screen">
+        <i class="fal fa-expand"></i>
+    </a>
+</nav>
+<!-- BEGIN Page Settings -->
+<div class="modal fade js-modal-settings modal-backdrop-transparent" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-right modal-md">
+        <div class="modal-content">
+            <div class="dropdown-header bg-primary-800 d-flex justify-content-center align-items-center w-100">
+                <h4 class="m-0 text-center color-white">
+                    Layout Settings
+                    <small class="mb-0 opacity-80">User Interface Settings</small>
+                </h4>
+                <button type="button" class="close text-white position-absolute pos-top pos-right p-2 m-1 mr-2" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true"><i class="fal fa-times"></i></span>
+                </button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="settings-panel">
+                    <div class="mt-4 d-table w-100 px-5">
+                        <div class="d-table-cell align-middle">
+                            <h5 class="p-0">
+                                App Layout
+                            </h5>
+                        </div>
+                    </div>
+                    <div class="list" id="nfh">
+                        <a href="#" onclick="return false;" class="btn btn-switch" data-action="toggle" data-class="nav-function-hidden"></a>
+                        <span class="onoffswitch-title">Hide Navigation</span>
+                        <span class="onoffswitch-title-desc">roll mouse on edge to reveal</span>
+                    </div>
+                    <div class="mt-4 d-table w-100 px-5">
+                        <div class="d-table-cell align-middle">
+                            <h5 class="p-0">
+                                Accessibility
+                            </h5>
+                        </div>
+                    </div>
+                    <div class="list" id="mbf">
+                        <a href="#" onclick="return false;" class="btn btn-switch" data-action="toggle" data-class="mod-bigger-font"></a>
+                        <span class="onoffswitch-title">Bigger Content Font</span>
+                        <span class="onoffswitch-title-desc">content fonts are bigger for readability</span>
+                    </div>
+                    <div class="list" id="mhc">
+                        <a href="#" onclick="return false;" class="btn btn-switch" data-action="toggle" data-class="mod-high-contrast"></a>
+                        <span class="onoffswitch-title">High Contrast Text (WCAG 2 AA)</span>
+                        <span class="onoffswitch-title-desc">4.5:1 text contrast ratio</span>
+                    </div>
+                    <div class="mt-4 d-table w-100 px-5">
+                        <div class="d-table-cell align-middle">
+                            <h5 class="p-0">
+                                Global Modifications
+                            </h5>
+                        </div>
+                    </div>
+                    <div class="list" id="mnl">
+                        <a href="#" onclick="return false;" class="btn btn-switch" data-action="toggle" data-class="mod-nav-link"></a>
+                        <span class="onoffswitch-title">Hierarchical Navigation</span>
+                        <span class="onoffswitch-title-desc">Clear breakdown of nav links</span>
+                    </div>
+                    <div class="list mt-1">
+                        <span class="onoffswitch-title">Global Font Size</span>
+                        <div class="btn-group btn-group-sm btn-group-toggle my-2" data-toggle="buttons">
+                            <label class="btn btn-default btn-sm" data-action="toggle-swap" data-class="root-text-sm" data-target="html">
+                                <input type="radio" name="changeFrontSize"> SM
+                            </label>
+                            <label class="btn btn-default btn-sm" data-action="toggle-swap" data-class="root-text" data-target="html">
+                                <input type="radio" name="changeFrontSize"> MD
+                            </label>
+                            <label class="btn btn-default btn-sm" data-action="toggle-swap" data-class="root-text-lg" data-target="html">
+                                <input type="radio" name="changeFrontSize"> LG
+                            </label>
+                            <label class="btn btn-default btn-sm" data-action="toggle-swap" data-class="root-text-xl" data-target="html">
+                                <input type="radio" name="changeFrontSize"> XL
+                            </label>
+                        </div>
+                        <span class="onoffswitch-title-desc d-block">Change <strong>root</strong> font size to effect rem values</span>
+                    </div>
+                    <hr class="mb-0 mt-4">
+                    <div class="mt-4 d-table w-100 pl-5 pr-3">
+                        <div class="d-table-cell align-middle">
+                            <h5 class="p-0 pr-2 d-flex">
+                                Theme Modes
+                            </h5>
+                        </div>
+                    </div>
+                    <div class="pl-5 pr-3 py-3">
+                        <div class="ie-only alert alert-warning d-none">
+                            <h6>Internet Explorer Issue</h6>
+                            This particular component may not work as expected in Internet Explorer. Please use with caution.
+                        </div>
+                        <div class="row no-gutters">
+                            <div class="col-4 pr-2 text-center">
+                                <div id="skin-default" data-action="toggle-replace" data-replaceclass="mod-skin-light mod-skin-dark" data-class="" data-toggle="tooltip" data-placement="top" title="" class="d-flex bg-white border border-primary rounded overflow-hidden text-success js-waves-on" data-original-title="Default Mode" style="height: 80px">
+                                    <div class="bg-primary-600 bg-primary-gradient px-2 pt-0 border-right border-primary"></div>
+                                    <div class="d-flex flex-column flex-1">
+                                        <div class="bg-white border-bottom border-primary py-1"></div>
+                                        <div class="bg-faded flex-1 pt-3 pb-3 px-2">
+                                            <div class="py-3" style="background:url('/Content/SmartAdmin/img/demo/s-1.png') top left no-repeat;background-size: 100%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                Default
+                            </div>
+                            <div class="col-4 px-1 text-center">
+                                <div id="skin-light" data-action="toggle-replace" data-replaceclass="mod-skin-dark" data-class="mod-skin-light" data-toggle="tooltip" data-placement="top" title="" class="d-flex bg-white border border-secondary rounded overflow-hidden text-success js-waves-on" data-original-title="Light Mode" style="height: 80px">
+                                    <div class="bg-white px-2 pt-0 border-right border-"></div>
+                                    <div class="d-flex flex-column flex-1">
+                                        <div class="bg-white border-bottom border- py-1"></div>
+                                        <div class="bg-white flex-1 pt-3 pb-3 px-2">
+                                            <div class="py-3" style="background:url('/Content/SmartAdmin/img/demo/s-1.png') top left no-repeat;background-size: 100%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                Light
+                            </div>
+                            <div class="col-4 pl-2 text-center">
+                                <div id="skin-dark" data-action="toggle-replace" data-replaceclass="mod-skin-light" data-class="mod-skin-dark" data-toggle="tooltip" data-placement="top" title="" class="d-flex bg-white border border-dark rounded overflow-hidden text-success js-waves-on" data-original-title="Dark Mode" style="height: 80px">
+                                    <div class="bg-fusion-500 px-2 pt-0 border-right"></div>
+                                    <div class="d-flex flex-column flex-1">
+                                        <div class="bg-fusion-600 border-bottom py-1"></div>
+                                        <div class="bg-fusion-300 flex-1 pt-3 pb-3 px-2">
+                                            <div class="py-3 opacity-30" style="background:url('/Content/SmartAdmin/img/demo/s-1.png') top left no-repeat;background-size: 100%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                Dark
+                            </div>
+                        </div>
+                    </div>
+                    <hr class="mb-0 mt-4">
+                    <div class="pl-5 pr-3 py-3 bg-faded">
+                        <div class="row no-gutters">
+                            <div class="col-12 pr-1">
+                                <a href="#" class="btn btn-outline-danger fw-500 btn-block" data-action="app-reset">Reset Settings</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <span id="saving"></span>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- END Page Settings -->
+        </div>
+    </div>
+</div>
+
+
+    <div class="modal modal-alert fade" id="loading-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header" style="border: none;">
+                    <h5 class="modal-title" id="loading-modal-title">Loading...</h5>
+                </div>
+                <div class="modal-body m-auto" style="overflow: hidden;">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+<p id="js-color-profile" class="d-none">
+    <span class="color-primary-50"></span>
+    <span class="color-primary-100"></span>
+    <span class="color-primary-200"></span>
+    <span class="color-primary-300"></span>
+    <span class="color-primary-400"></span>
+    <span class="color-primary-500"></span>
+    <span class="color-primary-600"></span>
+    <span class="color-primary-700"></span>
+    <span class="color-primary-800"></span>
+    <span class="color-primary-900"></span>
+    <span class="color-info-50"></span>
+    <span class="color-info-100"></span>
+    <span class="color-info-200"></span>
+    <span class="color-info-300"></span>
+    <span class="color-info-400"></span>
+    <span class="color-info-500"></span>
+    <span class="color-info-600"></span>
+    <span class="color-info-700"></span>
+    <span class="color-info-800"></span>
+    <span class="color-info-900"></span>
+    <span class="color-danger-50"></span>
+    <span class="color-danger-100"></span>
+    <span class="color-danger-200"></span>
+    <span class="color-danger-300"></span>
+    <span class="color-danger-400"></span>
+    <span class="color-danger-500"></span>
+    <span class="color-danger-600"></span>
+    <span class="color-danger-700"></span>
+    <span class="color-danger-800"></span>
+    <span class="color-danger-900"></span>
+    <span class="color-warning-50"></span>
+    <span class="color-warning-100"></span>
+    <span class="color-warning-200"></span>
+    <span class="color-warning-300"></span>
+    <span class="color-warning-400"></span>
+    <span class="color-warning-500"></span>
+    <span class="color-warning-600"></span>
+    <span class="color-warning-700"></span>
+    <span class="color-warning-800"></span>
+    <span class="color-warning-900"></span>
+    <span class="color-success-50"></span>
+    <span class="color-success-100"></span>
+    <span class="color-success-200"></span>
+    <span class="color-success-300"></span>
+    <span class="color-success-400"></span>
+    <span class="color-success-500"></span>
+    <span class="color-success-600"></span>
+    <span class="color-success-700"></span>
+    <span class="color-success-800"></span>
+    <span class="color-success-900"></span>
+    <span class="color-fusion-50"></span>
+    <span class="color-fusion-100"></span>
+    <span class="color-fusion-200"></span>
+    <span class="color-fusion-300"></span>
+    <span class="color-fusion-400"></span>
+    <span class="color-fusion-500"></span>
+    <span class="color-fusion-600"></span>
+    <span class="color-fusion-700"></span>
+    <span class="color-fusion-800"></span>
+    <span class="color-fusion-900"></span>
+</p>
+
+</body>
+</html>

@@ -14,6 +14,19 @@ jobs:
         with:
           node-version: "24"
       - run: npm ci
+      # mts-sync/readRollOffLeadRows.test.ts reads the saved MTS page in a real browser.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright's Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright's OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
