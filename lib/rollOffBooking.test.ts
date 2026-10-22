@@ -44,6 +44,7 @@ test("placement can't carry a template marker or run on", () => {
 
 test("contactOnFile needs a full name, phone and address", () => {
   assert.equal(onFile.state, "CO");
+  assert.equal(contactOnFile({ ...contact, state: " Colorado " })!.state, "CO");
   assert.equal(contactOnFile({ ...contact, lastName: "" }), null);
   assert.equal(contactOnFile({ ...contact, postalCode: undefined }), null);
 });

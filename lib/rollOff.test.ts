@@ -40,6 +40,8 @@ test("isOutsideServiceStates: only a set, unserved state counts", () => {
   assert.equal(isOutsideServiceStates(" co ", ["CO"]), false);
   assert.equal(isOutsideServiceStates(undefined, ["CO"]), false);
   assert.equal(isOutsideServiceStates("", ["CO"]), false);
+  assert.equal(isOutsideServiceStates("colorado", ["CO"]), false);
+  assert.equal(isOutsideServiceStates("New  Mexico", ["CO"]), true);
 });
 
 test("cold open: fixed text with the AI disclosure, the lead's name, and no link", () => {
