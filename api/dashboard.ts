@@ -4,6 +4,7 @@ import { dashboardPassword, isSignedIn, passwordMatches, sessionCookie, signedOu
 import { escapeHtml } from "../lib/contract.js";
 import { findCompany } from "../lib/companies.js";
 import { logEvent } from "../lib/logging.js";
+import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";
 
 const BRAND = "Mountain High Disposal";
 /** Slows down anyone guessing passwords through the form. */
@@ -74,84 +75,7 @@ function readForm(body: unknown): Record<string, string> {
   return {};
 }
 
-function brandName(): string {
-  return escapeHtml(findCompany(BRAND)?.displayName ?? BRAND);
-}
-
-const STYLES = `
-  :root {
-    color-scheme: light dark;
-    --bg: #f7f5f1;
-    --card: #ffffff;
-    --ink: #1c1f1d;
-    --ink-dim: #6b6f6c;
-    --line: rgba(28,31,29,0.09);
-    --accent: #3f6652;
-    --accent-ink: #ffffff;
-    --accent-soft: rgba(63,102,82,0.12);
-    --gold: #a8823f;
-    --notice-bg: rgba(168,130,63,0.10);
-    --err: #b3261e;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121311;
-      --card: #191b18;
-      --ink: #f3f1ec;
-      --ink-dim: #9a9d99;
-      --line: rgba(243,241,236,0.1);
-      --accent: #6fa789;
-      --accent-ink: #121311;
-      --accent-soft: rgba(111,167,137,0.16);
-      --gold: #c9a563;
-      --notice-bg: rgba(201,165,99,0.12);
-      --err: #f2b8b5;
-    }
-  }
-
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 56px 24px 80px;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  .masthead { text-align: center; margin-bottom: 36px; }
-  .eyebrow {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--gold); margin: 0 0 10px;
-  }
-  h1 {
-    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
-    font-weight: 400; font-size: 30px; letter-spacing: 0.01em;
-    margin: 0 0 14px; color: var(--ink);
-  }
-  .rule { width: 56px; height: 1px; margin: 0 auto 16px; background: var(--gold); opacity: 0.6; }
-  p.sub { color: var(--ink-dim); font-size: 13.5px; line-height: 1.55; max-width: 560px; margin: 0 auto; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 28px 30px 8px;
-    margin-top: 32px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 12px 32px -20px rgba(0,0,0,0.18);
-  }
-
-  button {
-    font: inherit; cursor: pointer; border-radius: 7px;
-  }
-  .link-button {
-    background: none; border: none; padding: 4px 0; color: var(--ink-dim);
-    font-size: 13px; text-decoration: underline; text-underline-offset: 3px;
-  }
-  .link-button:hover { color: var(--ink); }
-`;
+const STYLES = SITE_STYLES + SITE_NAV_STYLES;
 
 function shell(nonce: string, title: string, body: string, extraCss = "", script = ""): string {
   return `<!doctype html>
@@ -172,13 +96,9 @@ ${script ? `<script nonce="${nonce}">${script}</script>` : ""}
 </html>`;
 }
 
-function masthead(sub: string): string {
-  return `<div class="masthead">
-    <p class="eyebrow">Roll-off dumpster bot</p>
-    <h1>${brandName()}</h1>
-    <div class="rule"></div>
-    ${sub}
-  </div>`;
+function masthead(sub: string, signedIn = false): string {
+  const nav = signedIn ? `<a href="/dashboard" aria-current="page">Dashboard</a><a href="/admin">Status</a>` : "";
+  return siteMasthead(findCompany(BRAND)?.displayName ?? BRAND, sub, nav);
 }
 
 function signInPage(nonce: string, error = "", showForm = true): string {
@@ -200,7 +120,8 @@ function signInPage(nonce: string, error = "", showForm = true): string {
       <label for="password">Password</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
       <button class="primary" type="submit">Sign in</button>
-    </form>`
+    </form>
+    <script nonce="${nonce}">document.querySelector("form").addEventListener("submit",function(){var b=this.querySelector("button");b.disabled=true;b.textContent="Signing in…";});</script>`
     : "";
   return shell(
     nonce,
@@ -252,13 +173,15 @@ function dashboardPage(nonce: string): string {
   button, input, select { transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
   button:active { transform: scale(0.98); }
   input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .bar { transition: width 0.3s ease; }
+  .bar { transform-origin: left center; animation: grow 0.3s ease-out both; }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .primary:disabled { opacity: 0.6; cursor: progress; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   tbody tr:hover { background: var(--accent-soft); }
   tbody tr:last-child td { border-bottom: none; }
   td.zero { color: var(--ink-dim); }
   .bar-cell { position: relative; width: 26%; }
-  .bar { position: absolute; left: 0; top: 6px; bottom: 6px; background: var(--accent-soft); border-radius: 3px; }
+  .bar { position: absolute; left: 0; top: 6px; bottom: 6px; width: 100%; background: var(--accent-soft); border-radius: 3px; }
   .bar-label { position: relative; z-index: 1; padding-right: 6px; }
   .date-short { display: none; }
 
@@ -346,7 +269,7 @@ function dashboardPage(nonce: string): string {
     totalsEl.replaceChildren();
     COLUMNS.forEach(function (c) {
       var tile = el("div");
-      tile.appendChild(el("div", "num", totals[c[0]]));
+      var num = el("div", "num", 0); tile.appendChild(num); countUp(num, totals[c[0]]);
       tile.appendChild(el("div", "label", c[1]));
       totalsEl.appendChild(tile);
     });
@@ -373,7 +296,7 @@ function dashboardPage(nonce: string): string {
         if (i === 0) {
           td.className += " bar-cell";
           var bar = el("span", "bar");
-          bar.style.width = (d.reached / maxReached) * 100 + "%";
+          bar.style.width = "100%"; bar.style.transform = "scaleX(" + (d.reached / maxReached) + ")";
           td.appendChild(bar);
           td.appendChild(el("span", "bar-label", d.reached));
         } else {
@@ -383,6 +306,18 @@ function dashboardPage(nonce: string): string {
       });
       rows.appendChild(tr);
     });
+  }
+
+  function countUp(node, target) {
+    if (target === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { node.textContent = String(target); return; }
+    var start = null;
+    function step(t) {
+      if (start === null) start = t;
+      var p = Math.min((t - start) / 450, 1);
+      node.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 
   function showNotices(list) {

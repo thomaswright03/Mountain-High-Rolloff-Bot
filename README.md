@@ -152,8 +152,8 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
 Important, Key and Basic; each row has a status, last checked and last
 success in Denver time. Job and service results are recorded in the Blob
 store (`lib/runStatus.ts`) and anything stale shows Warning, Down or
-Unknown. The Latest Update section reads `lib/latestUpdate.ts`: add an entry
-each round. Signed contracts whose GHL note failed are parked in Blob and
+Unknown. The Latest Update section reads `lib/latestUpdate.ts`: replace the entry
+each round (only the current round is shown). Signed contracts whose GHL note failed are parked in Blob and
 retried by the scheduled job; any still waiting show on the page.
 
 ## Who gets alerted
@@ -183,7 +183,8 @@ Restore: download the artifact, unzip it to a folder, then
 prefix (`restore-test/contracts/<id>/signed.html` opens the signed copy).
 For a real restore leave the prefix off; it never overwrites existing files.
 The copy and restore code is covered by `lib/backup.test.ts`; a restore
-against the real store has not been run yet (the store isn't set up).
+against the real store has not been run yet (the store is connected, but no
+restore drill is recorded; see docs/live-smoke.md).
 
 ## Model checks
 

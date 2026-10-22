@@ -5,6 +5,8 @@ import { collectStatus, toJson, type AdminStatus, type Status } from "../lib/adm
 import { LATEST_UPDATES } from "../lib/latestUpdate.js";
 import { escapeHtml } from "../lib/contract.js";
 import { logEvent } from "../lib/logging.js";
+import { findCompany } from "../lib/companies.js";
+import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";
 
 const TIMEZONE = "America/Denver";
 const FAILED_SIGN_IN_DELAY_MS = 1000;
@@ -78,7 +80,7 @@ async function signIn(req: VercelRequest, res: VercelResponse, password: string 
 
 function sendHtml(res: VercelResponse, code: number, render: (nonce: string) => string): void {
   const nonce = randomBytes(16).toString("base64");
-  res.setHeader("Content-Security-Policy", `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`);
+  res.setHeader("Content-Security-Policy", `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(code).send(render(nonce));
 }
@@ -90,56 +92,61 @@ export function denverTime(iso: string | null): string {
 
 const SYMBOL: Record<Status, string> = { OK: "✓", Warning: "!", Down: "✕", Unknown: "?" };
 
-const CSS = `
-:root { color-scheme: light dark; --bg:#f7f5f1; --card:#fff; --ink:#1c1f1d; --dim:#5d6260; --line:rgba(28,31,29,.12); --ok:#1f6b3b; --warn:#8a5a00; --down:#b3261e; --unk:#55595c; --accent:#3f6652; }
-@media (prefers-color-scheme: dark) { :root { --bg:#121311; --card:#191b18; --ink:#f3f1ec; --dim:#a4a7a3; --line:rgba(243,241,236,.14); --ok:#7fd49b; --warn:#e8bd5f; --down:#f2b8b5; --unk:#b0b3b6; --accent:#6fa789; } }
-* { box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; line-height: 1.5; }
-h1 { font-size: 1.5rem; margin: 0 0 4px; } h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 28px 0 8px; }
-.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 8px 0 0; }
-.badge { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 2px solid currentColor; white-space: nowrap; }
-.OK { color: var(--ok); } .Warning { color: var(--warn); } .Down { color: var(--down); } .Unknown { color: var(--unk); }
-.dim { color: var(--dim); font-size: .9rem; }
-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: .92rem; }
-th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
-tr:last-child td { border-bottom: none; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 18px 14px; margin-top: 8px; }
-.card h3 { font-size: .95rem; margin: 14px 0 4px; } .card ul { margin: 0; padding-left: 20px; } .card li { margin: 3px 0; font-size: .92rem; }
-input[type=password] { width: 100%; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 16px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; }
-button { min-height: 44px; margin-top: 12px; width: 100%; font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
-input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 6px; }
-.err { color: var(--down); }
-.signin { max-width: 380px; margin: 48px auto; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-body > * { animation: rise .24s ease-out both; }
-tbody tr, button, input { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease; }
-tbody tr:hover { background: rgba(63,102,82,.08); }
-button:hover { opacity: .92; } button:active { transform: scale(.98); }
-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,102,82,.2); }
-.badge { transition: color .2s ease, background-color .2s ease; }
-.mob { display: none; font-size: .78rem; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-@media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } .mob { display: block; } }
+const CSS = SITE_STYLES + SITE_NAV_STYLES + `
+  body { max-width: 960px; }
+  .masthead { margin-bottom: 8px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; color: var(--gold); margin: 32px 0 8px; font-weight: 600; }
+  .top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: center; margin: 0; }
+  .badge { display: inline-block; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 2px solid currentColor; white-space: nowrap; transition: color .2s ease; }
+  .OK { color: var(--ok); } .Warning { color: var(--warn); } .Down { color: var(--down); } .Unknown { color: var(--unk); }
+  :root { --ok:#1f6b3b; --warn:#8a5a00; --down:#b3261e; --unk:#55595c; }
+  @media (prefers-color-scheme: dark) { :root { --ok:#7fd49b; --warn:#e8bd5f; --down:#f2b8b5; --unk:#b0b3b6; } }
+  .dim { color: var(--ink-dim); font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: .92rem; }
+  th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); }
+  tr:last-child td { border-bottom: none; }
+  .card { padding: 8px 18px 14px; margin-top: 8px; }
+  .card h3 { font-size: .95rem; margin: 14px 0 4px; } .card ul { margin: 0; padding-left: 20px; } .card li { margin: 3px 0; font-size: .92rem; }
+  .card.narrow { max-width: 380px; margin: 32px auto 0; padding: 22px 28px 28px; }
+  label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 8px; }
+  input[type=password] { width: 100%; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 16px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; }
+  button.primary { min-height: 44px; margin-top: 16px; width: 100%; font-weight: 600; font-size: 15px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+  button.primary:disabled { opacity: .6; cursor: progress; }
+  input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .err { color: var(--down); margin: 0 0 14px; }
+  tbody tr { animation: rise .24s ease-out both; }
+  tbody tr:nth-child(2) { animation-delay: 25ms; } tbody tr:nth-child(3) { animation-delay: 50ms; } tbody tr:nth-child(4) { animation-delay: 75ms; } tbody tr:nth-child(5) { animation-delay: 100ms; } tbody tr:nth-child(n+6) { animation-delay: 125ms; }
+  tbody tr:hover { background: var(--accent-soft); }
+  input, button { transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease; }
+  button:active { transform: scale(.98); }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .mob { display: none; font-size: .78rem; }
+  @media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } .mob { display: block; } }
 `;
+
+const BRAND = "Mountain High Disposal";
+const brand = () => findCompany(BRAND)?.displayName ?? BRAND;
+const SIGN_IN_SCRIPT = (nonce: string) =>
+  `<script nonce="${nonce}">var f=document.querySelector("form");if(f)f.addEventListener("submit",function(){var b=f.querySelector("button");b.disabled=true;b.textContent="Signing in…";});</script>`;
 
 function shell(nonce: string, title: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-<title>${escapeHtml(title)}</title><style nonce="${nonce}">${CSS}</style></head><body>${body}</body></html>`;
+<title>${escapeHtml(title)}</title><style nonce="${nonce}">${CSS}</style></head><body>${body}${SIGN_IN_SCRIPT(nonce)}</body></html>`;
 }
 
 function signInPage(nonce: string, error = ""): string {
   return shell(
     nonce,
-    "Roll-off bot: admin",
-    `<main class="signin"><h1>Roll-off bot: admin</h1><p class="dim">Sign in to see what is working.</p>
+    "Roll-off bot: status",
+    `${siteMasthead(brand(), `<p class="sub">Sign in to see what is working.</p>`)}
+<main class="card narrow">
 ${error ? `<p class="err" role="alert">${escapeHtml(error)}</p>` : ""}
 <form method="post" action="/admin"><label for="password">Password</label>
-<input id="password" name="password" type="password" autocomplete="current-password" required autofocus /><button type="submit">Sign in</button></form></main>`
+<input id="password" name="password" type="password" autocomplete="current-password" required autofocus /><button class="primary" type="submit">Sign in</button></form></main>`
   );
 }
 
@@ -159,9 +166,9 @@ function statusPage(nonce: string, s: AdminStatus): string {
   ).join("");
   return shell(
     nonce,
-    "Roll-off bot: admin",
-    `<main><h1>${escapeHtml(s.product)}</h1>
-<p class="top"><span class="badge ${s.overall}"><span aria-hidden="true">${SYMBOL[s.overall]}</span> ${s.overall}</span><span class="dim">Checked ${escapeHtml(denverTime(s.checked_at))}</span><a href="/dashboard">Dashboard</a></p>
+    "Roll-off bot: status",
+    `${siteMasthead(brand(), `<p class="sub">${escapeHtml(s.product)}</p>`, `<a href="/dashboard">Dashboard</a><a href="/admin" aria-current="page">Status</a>`)}
+<main><p class="top"><span class="badge ${s.overall}"><span aria-hidden="true">${SYMBOL[s.overall]}</span> ${s.overall}</span><span class="dim">Checked ${escapeHtml(denverTime(s.checked_at))}</span></p>
 ${section("Important")}${section("Key")}${section("Basic")}
 <h2>Latest Update</h2>${updates}</main>`
   );

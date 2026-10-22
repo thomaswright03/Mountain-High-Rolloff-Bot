@@ -2,10 +2,10 @@
 
 Texts people who start booking a roll-off dumpster on mountainhighdisposal.com but don't finish, answers replies, and books in the text thread: code-written summary, full-name signature, office takes the card and enters the MTS contract. Never sends a link or takes a card. Mountain High Disposal only, Colorado only, Loveland blocked.
 
-## Status (2026-10-21): TEST MODE, not deployed
-- Reads real MTS leads; texts no one; writes nothing to GHL (replies included).
-- Not on Vercel yet; GHL not connected; texting, replies and contracts never run against real systems.
-- Tests: `npm test` (186), `npm run typecheck`, `npm run lint` (typescript-eslint, floating promises) pass. CI runs all three.
+## Status (2026-10-22): deployed, still TEST MODE
+- Live at https://mountain-high-rolloff-bot.vercel.app (/dashboard, /admin, /admin/status.json). Thomas ticked off: Vercel deploy + GHL and signing secrets, GHL connected, kill-switch URL, HITTA_API_KEY, branch protection, eval run, MTS fixture.
+- DRY_RUN is on (repo variable) and `ROLLOFF_TCPA_CONSENT_CONFIRMED=false` (lib/rollOff.ts): no scheduled text goes out. Texting, replies, booking and the email have never run against real GHL (docs/live-smoke.md lists what is unrun).
+- Tests: `npm test` (195), `npm run typecheck`, `npm run lint` pass. CI runs all three.
 
 ## Parts
 - GitHub Actions every 10 min: `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
@@ -51,9 +51,15 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - What should "Prohibit Sales Outside Areas = No" mean for how cautious the AI is about serviceability?
 - Mountain High's standard roll-off terms (overweight, extra days, damage, placement, cancellation) are still missing (`standardTerms: null`).
 
+## Excellence fix round 3 (69 -> ?), 2026-10-22, done in code
+- Docs/workflow comments match the live deployment; Latest Update is "replace each round".
+- `/` redirects to /dashboard, unknown paths get a branded 404 (`api/notFound.ts`, last rewrite in vercel.json).
+- One design: `lib/siteStyle.ts` shared by /dashboard, /admin, 404; cross-links; staggered rows, count-up totals, bars via scaleX, sign-in loading state.
+- Follow-up drafts now come after the DRY_RUN and consent gates; two `(err as Error)` spots use `errorMessage`.
+- NOT done (needs real systems or a decision): live smoke test, kill-switch flip, real restore drill and Vercel rollback (docs/live-smoke.md); real cost per purpose on a page; held-out eval set; manual contract page keep/remove decision.
+
 ## Not done / open
-- Medium 9: no live GHL/Blob reads yet (not deployed). MTS scraper fixture needs real HTML.
-- Run `npm run eval` once with a key and commit `docs/eval-results.md`; measure cost per conversation.
-- Admin GHL check calls `/locations/{id}`; confirm the token can read it once GHL is connected.
-- Thomas: kill-switch flag + `KILLSWITCH_URL`; deploy to Vercel with secrets (`ADMIN_STATUS_TOKEN`, `BLOB_READ_WRITE_TOKEN` also as GitHub secret); `HITTA_API_KEY` GitHub secret; CEO's TCPA consent; standard terms and fee prices; branch protection; privacy notice for IP/browser.
-- 2026-10-22 fix round 2: documented CLAUDE_CHEAP_MODEL_ID; $85 check hardened; /admin plain names; DEPLOYED_AT shown in Denver time. Thomas still needs: deploy, eval re-run, TCPA consent, booking email.
+- Booking email still goes to `t@thomasewright.com` (lib/companies.ts) although Thomas ticked off the customer team's address: need the address.
+- Admin GHL check calls `/locations/{id}`; confirm the token can read it.
+- CEO's TCPA consent and standard terms (`standardTerms: null`) and fee prices; privacy notice for IP/browser.
+- Decide whether to keep the manual e-sign page (`api/contract.ts`, `scripts/createContract.ts`); remove if nobody uses it.

@@ -13,7 +13,7 @@ name: Send roll-off texts
 # DRY_RUN is "true" unless the repo variable DRY_RUN is set to something
 # else (Settings > Secrets and variables > Actions > Variables), so going
 # live or back to test mode needs no commit. Going live also needs
-# ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in sendRollOffTexts.ts, and
+# ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in lib/rollOff.ts, and
 # KILLSWITCH_URL set: with DRY_RUN off, a missing or unreachable kill-switch
 # flag means PAUSED (lib/killswitch.ts).
 #

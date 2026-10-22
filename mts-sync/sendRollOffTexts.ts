@@ -191,18 +191,11 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   const neverActuallyDelivered = stage !== "cold_open" && outboundTurns.length > 0 && outboundTurns.every((t) => t.status === "failed");
 
   const firstName = safeFirstName(contact.firstName);
-  const draft =
-    stage === "cold_open" || neverActuallyDelivered
-      ? buildRollOffColdOpen(company, firstName)
-      : rejectTemplateMarkers(
-          await draftFollowUp(
-            stage === "follow_up_1" ? buildRollOffFollowUp1Prompt(company, rollOff) : buildRollOffFollowUp2Prompt(company, rollOff),
-            formatHistory(history),
-            firstName
-          )
-        );
+  const isColdOpen = stage === "cold_open" || neverActuallyDelivered;
 
+  // Gates first: a dry or gated run never pays for a model-drafted follow-up.
   if (dryRun) {
+    const draft = isColdOpen ? buildRollOffColdOpen(company, firstName) : undefined;
     logEvent({ event: "rolloff_text_dry_run", contactId, stage, draft, neverActuallyDelivered });
     return "retry"; // nothing sent — retry for real on a future run
   }
@@ -211,6 +204,16 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     logEvent({ event: "rolloff_text_blocked_tcpa_gate", contactId, stage });
     return "retry"; // retry once the gate is flipped
   }
+
+  const draft = isColdOpen
+    ? buildRollOffColdOpen(company, firstName)
+    : rejectTemplateMarkers(
+        await draftFollowUp(
+          stage === "follow_up_1" ? buildRollOffFollowUp1Prompt(company, rollOff) : buildRollOffFollowUp2Prompt(company, rollOff),
+          formatHistory(history),
+          firstName
+        )
+      );
 
   // Claimed before the slow MTS check + send, same as Kaizen's sendOutreach.ts
   // PROCESSING_TAG: narrows (GHL tags have no compare-and-swap) the window
@@ -283,7 +286,7 @@ export async function releaseStuckProcessingTags(now: Date = new Date(), staleMi
       logEvent({ event: "rolloff_processing_tag_released", contactId: c.id });
     } catch (err: unknown) {
       stillStuck++;
-      logEvent({ event: "rolloff_processing_tag_release_failed", contactId: c.id, error: (err as Error)?.message });
+      logEvent({ event: "rolloff_processing_tag_release_failed", contactId: c.id, error: errorMessage(err) });
     }
   }
   return { released, stillStuck };
@@ -311,7 +314,7 @@ export async function run(contactIdOverride?: string): Promise<void> {
       const { released, stillStuck } = await releaseStuckProcessingTags();
       await recordHeartbeat("rolloff-stuck", stillStuck === 0, stillStuck === 0 ? (released ? `released ${released} stranded contact(s) for retry` : "none stuck") : `${stillStuck} still tagged`, new Date(), { count: stillStuck });
     } catch (err: unknown) {
-      logEvent({ event: "rolloff_stuck_sweep_failed", error: (err as Error)?.message });
+      logEvent({ event: "rolloff_stuck_sweep_failed", error: errorMessage(err) });
     }
   }
 
