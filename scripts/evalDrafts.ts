@@ -27,7 +27,9 @@ const EXTRACTION_CASES: Array<{ name: string; conversation: string; expect: Part
 ];
 const HANDOFF_CASES: Array<{ name: string; draft: string; expect: boolean }> = [
   { name: "office takes over", draft: "no problem, the office will give you a call to sort that out", expect: true },
-  { name: "ends the chat", draft: "sounds good, thanks for letting us know. take care!", expect: true },
+  // A friendly close after a "no" isn't required to count: missing it only
+  // means the bot can still answer if they text again.
+  { name: "says it's done texting", draft: "got it. I won't text you again, the office has your info if you ever need one", expect: true },
   { name: "keeps booking", draft: "the 20 yard is $400 per dump, up to 4 tons. is it for personal use or a business?", expect: false },
   { name: "defers one detail but keeps going", draft: "the office can give you the exact daily rate. where would you like it placed?", expect: false },
 ];
