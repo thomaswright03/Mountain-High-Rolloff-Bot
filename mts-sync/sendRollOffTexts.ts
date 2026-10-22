@@ -8,7 +8,7 @@
 // Cold open and follow-ups live in one job, unlike Kaizen's residential
 // sendOutreach.ts / sendFollowUps.ts split, because both need the same MTS
 // check before every real send: finishing the booking online is exactly
-// what the first text asks them to do, so someone who did must never get
+// what the first text is after, so someone who did must never get
 // "still need that dumpster?" afterwards. One MTS login per run covers both.
 // Run via `npm run rolloff:send`, and on a schedule via
 // .github/workflows/send-rolloff-texts.yml.
@@ -28,11 +28,12 @@ import {
   bookingCheckSince,
   isOutsideServiceStates,
   contractsSince,
-  fillBookingLink,
+  rejectTemplateMarkers,
   planRollOffText,
   type MtsContractRow,
   type RollOffStage,
 } from "../lib/rollOff.js";
+import { ROLLOFF_CONFIRMED_TAG } from "../lib/rollOffBooking.js";
 import { buildRollOffColdOpen, buildRollOffFollowUp1Prompt, buildRollOffFollowUp2Prompt } from "../lib/rollOffPrompt.js";
 import { draftFollowUp } from "../lib/claude.js";
 import { safeFirstName } from "../lib/outboundSafety.js";
@@ -55,7 +56,9 @@ const SEND_DELAY_MS = 1500; // small pause between real sends, avoids bursting
 const PACED_SEND_CAP = 100;
 
 // RESIDENTIAL_TAG: the residential bot texts them already (lib/rollOff.ts).
-const STOP_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_PROCESSING_TAG, ROLLOFF_BOOKED_TAG, ROLLOFF_FOLLOWUP_2_TAG, RESIDENTIAL_TAG];
+// ROLLOFF_CONFIRMED_TAG: they signed their booking by text, so no "do you
+// still need one?" nudges.
+const STOP_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_PROCESSING_TAG, ROLLOFF_BOOKED_TAG, ROLLOFF_CONFIRMED_TAG, ROLLOFF_FOLLOWUP_2_TAG, RESIDENTIAL_TAG];
 
 interface PendingEntry {
   contactId: string;
@@ -189,13 +192,12 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   const draft =
     stage === "cold_open" || neverActuallyDelivered
       ? buildRollOffColdOpen(company, firstName)
-      : fillBookingLink(
+      : rejectTemplateMarkers(
           await draftFollowUp(
             stage === "follow_up_1" ? buildRollOffFollowUp1Prompt(company, rollOff) : buildRollOffFollowUp2Prompt(company, rollOff),
             formatHistory(history),
             firstName
-          ),
-          rollOff
+          )
         );
 
   if (dryRun) {

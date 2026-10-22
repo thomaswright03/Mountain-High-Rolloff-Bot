@@ -1,14 +1,15 @@
-import type { ConversationTurn, RollOffConfig } from "./types.js";
+import type { ConversationTurn } from "./types.js";
 
 // Roll-off dumpster abandoned-cart bot (Thomas, 2026-10-10: "make this same
 // AI Mountain High Disposal bot but for roll off dumpster abandoned carts").
 // Someone starts booking a roll-off on the brand's website (MTS's
 // RollOffSignupWidget: page 1 name/address/phone/email, page 2 size, dates
 // and a card, page 3 an e-signature) and stops partway. The bot texts them
-// to get the booking finished — by sending them back to the booking page or
-// handing them to the office for a call. It never books anything itself:
-// a booking needs a card and a signature, and a card number must never
-// travel over SMS (lib/safety.ts escalates one on sight).
+// to get the booking finished. Since 2026-10-21 it books right in the text
+// thread (lib/rollOffBooking.ts): it asks what MTS's roll-off contract form
+// needs, sends a summary, and their full name signs it. It never sends a
+// link, and a card number never travels over SMS (lib/safety.ts escalates
+// one on sight): the office calls to take payment.
 //
 // Kept apart from the residential flow end to end: its own tags, its own
 // scheduled job (mts-sync/sendRollOffTexts.ts), its own reply path
@@ -29,17 +30,6 @@ export const ROLLOFF_FOLLOWUP_2_TAG = "ai-rolloff-followup-2-sent";
 /** MTS shows a contract for this phone made since they started — they
  * finished on their own or through the office. Nothing more is sent. */
 export const ROLLOFF_BOOKED_TAG = "ai-rolloff-booked";
-
-/** The model writes this where the booking link goes; code swaps in the
- * brand's configured bookingUrl (fillBookingLink). The model never types a
- * URL itself — same code-owned pattern as the signup summary markers in
- * Kaizen's residential lib/prompt.ts. */
-export const ROLLOFF_BOOKING_LINK_MARKER = "[[BOOKING_LINK]]";
-/** The model writes this where the lead's own contract signing link goes
- * (replies only). lib/contractLink.ts makes the contract and swaps in its
- * link before fillBookingLink runs; anywhere else it's left over and
- * fillBookingLink refuses the draft. */
-export const ROLLOFF_CONTRACT_LINK_MARKER = "[[CONTRACT_LINK]]";
 
 /** Someone who stops at page 2 may only be grabbing their card — give them
  * this long after the lead lands before texting. */
@@ -82,14 +72,14 @@ export class UnexpectedMarkerError extends Error {
   }
 }
 
-/** Swaps the booking-link marker for the real URL. Any other [[...]] marker
- * (e.g. the residential signup summary) throws, so callers' error handling
- * hands the contact to a human instead of texting a raw marker. */
-export function fillBookingLink(draft: string, rollOff: RollOffConfig): string {
-  const filled = draft.split(ROLLOFF_BOOKING_LINK_MARKER).join(rollOff.bookingUrl);
-  const leftover = filled.match(/\[\[[^\]]*\]\]/g);
+/** No roll-off text uses a [[...]] template, so a draft that has one (the
+ * model imitating the residential signup summary, say) throws, and callers'
+ * error handling hands the contact to a human instead of texting a raw
+ * marker. */
+export function rejectTemplateMarkers(draft: string): string {
+  const leftover = draft.match(/\[\[[^\]]*\]\]/g);
   if (leftover) throw new UnexpectedMarkerError(leftover);
-  return filled;
+  return draft;
 }
 
 export type RollOffStage = "cold_open" | "follow_up_1" | "follow_up_2";

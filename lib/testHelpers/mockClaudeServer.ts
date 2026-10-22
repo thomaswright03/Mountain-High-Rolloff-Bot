@@ -11,8 +11,8 @@ export interface MockClaudeServer {
   /** What the reply-drafting and follow-up calls return. */
   draft: string;
   handoff: boolean;
-  /** What the contract-details extraction returns (lib/contractLink.ts). */
-  contractDetails: Record<string, unknown>;
+  /** What the booking extraction returns (lib/rollOffBooking.ts). */
+  bookingState: Record<string, unknown>;
   requests: Array<{ system: string; messages: Array<{ role: string; content: string }> }>;
   close: () => Promise<void>;
 }
@@ -21,7 +21,7 @@ export function startMockClaudeServer(): Promise<MockClaudeServer> {
   const state = {
     draft: "sounds good :)",
     handoff: false,
-    contractDetails: { yards: null, requested_delivery_date: null } as Record<string, unknown>,
+    bookingState: { wants_to_book: false, yards: null, customer_type: null, placement: null, call_before_delivery: null } as Record<string, unknown>,
   };
   const requests: MockClaudeServer["requests"] = [];
 
@@ -41,8 +41,8 @@ export function startMockClaudeServer(): Promise<MockClaudeServer> {
       let text: string;
       if (system.includes("hand the") && system.includes("off to a human")) {
         text = JSON.stringify({ handoffToHuman: current().handoff });
-      } else if (system.includes("pull the roll-off contract details")) {
-        text = JSON.stringify(current().contractDetails);
+      } else if (system.includes("pull roll-off booking details")) {
+        text = JSON.stringify(current().bookingState);
       } else {
         text = current().draft;
       }

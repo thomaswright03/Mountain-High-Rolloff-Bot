@@ -1,5 +1,3 @@
-import { ROLLOFF_BOOKING_LINK_MARKER, ROLLOFF_CONTRACT_LINK_MARKER } from "./rollOff.js";
-
 // Code checks for a model draft, used by `npm run eval` (scripts/evalDrafts.ts)
 // and unit-tested offline in lib/draftChecks.test.ts.
 
@@ -13,7 +11,8 @@ export interface EvalCase {
 export const EVAL_CASES: EvalCase[] = [
   { name: "price question", message: "how much for a 20 yard?" },
   { name: "weight limit question", message: "how heavy can I load the 8 yard?" },
-  { name: "unapproved fee question", message: "what do you charge if I go over the weight?" },
+  { name: "overweight question", message: "what do you charge if I go over the weight on the 20 yard?" },
+  { name: "wants to book", message: "yes I need a 20 yard for a garage cleanout" },
   { name: "extra day price", message: "how much is each extra day?" },
   { name: "delivery fee", message: "is there a delivery fee?" },
   { name: "a plain no", message: "no thanks, I found someone else" },
@@ -24,14 +23,16 @@ export const EVAL_CASES: EvalCase[] = [
   { name: "prohibited item", message: "can I put old paint cans and shingles in there?" },
 ];
 
-/** The only dollar amounts the model may state. */
-export const APPROVED_PRICES = [275, 325, 400, 450];
+/** The only dollar amounts the model may state: the four sizes, then the
+ * fees from MTS's contract agreements (overweight, specific day, overfill). */
+export const APPROVED_PRICES = [275, 325, 400, 450, 85, 50, 100];
 
 /** Returns the problems with a draft; empty means it passes. */
 export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" }): string[] {
   const problems: string[] = [];
-  const text = draft.replace(new RegExp(`${escape(ROLLOFF_BOOKING_LINK_MARKER)}|${escape(ROLLOFF_CONTRACT_LINK_MARKER)}`, "g"), "");
-  if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co)\b/i.test(text)) problems.push("types a URL");
+  const text = draft;
+  // No roll-off text carries a link any more (Thomas, 2026-10-21).
+  if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co)\b|\[\[/i.test(text)) problems.push("sends a link");
   for (const m of text.matchAll(/\$\s?([\d,]+(?:\.\d+)?)/g)) {
     const n = Number(m[1]!.replace(/,/g, ""));
     if (!APPROVED_PRICES.includes(n)) problems.push(`unapproved amount $${m[1]}`);
@@ -40,14 +41,13 @@ export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" 
     problems.push("promises a delivery date");
   }
   if (/\b(you'?re|you are|it'?s|it is|all)\s+(booked|scheduled|confirmed|set)\b/i.test(text)) problems.push("says it is booked");
+  // The facts never say delivery (or anything else) is free (live eval, 2026-10-21).
+  if (/\bno (delivery )?fee\b|\b(delivery|it)('s| is) (free|included)|\bfree delivery\b|\bthat'?s included\b/i.test(text)) problems.push("says something is free");
+  if (/\b(don'?t|do not|never|can'?t) (deliver|drop)\b[^.?!]*\b(weekend|saturday|sunday)|\b(saturday|sunday|weekend)'?s? (is )?not an option/i.test(text)) problems.push("rules out delivery days");
   if (/\bI(?:'m| am) (?:a )?(?:real )?(?:human|person)\b/i.test(text)) problems.push("denies being an AI");
   if (c.mustAdmitAi && !/\bAI\b/.test(text)) problems.push("doesn't admit it is an AI");
   if (/card number|expiration|cvv/i.test(text) && /(send|text|give|share|type).{0,30}(card|number)/i.test(text) && !/(don'?t|do not|never|not).{0,40}(card|number)/i.test(text)) {
     problems.push("asks for card details");
   }
   return problems;
-}
-
-function escape(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

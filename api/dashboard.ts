@@ -266,7 +266,7 @@ function dashboardPage(nonce: string): string {
   }`;
 
   const body = `${masthead(
-    `<p class="sub">Roll-off leads only. Each column counts what happened that day, Denver time: the bot's first text to a lead, the lead's first reply, a contract link texted to them, and a contract signed.</p>`
+    `<p class="sub">Roll-off leads only. Each column counts what happened that day, Denver time: the bot's first text to a lead, the lead's first reply, a booking summary texted to them, and a booking signed with their name.</p>`
   )}
   <div class="card">
     <div id="controls">

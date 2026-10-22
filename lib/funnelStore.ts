@@ -9,15 +9,17 @@ import { logEvent } from "./logging.js";
 //
 //   funnel/reached/{contactId}.json    the bot's first text to a lead went out
 //   funnel/responded/{contactId}.json  the lead's first text back
-//   funnel/contract-sent/{contractId}.json  the contract link was texted to them
-//   {contracts folder}/{id}/signed.json    they signed it
+//   funnel/contract-sent/{contractId}.json  the contract link was texted to them (before 2026-10-21)
+//   funnel/summary-sent/{contactId}.json    the booking summary was texted to them
+//   funnel/signed/{contactId}.json          they signed it by texting their name
+//   {contracts folder}/{id}/signed.json    they signed a linked contract (before 2026-10-21)
 //
 // The funnel files are written once per lead (the first one wins), and
 // only for real texts: under DRY_RUN nothing is recorded, so test runs
 // never show up as reached. The dashboard only lists the files and uses
 // each one's upload time, it never reads them.
 
-export type FunnelEvent = "reached" | "responded" | "contract-sent";
+export type FunnelEvent = "reached" | "responded" | "contract-sent" | "summary-sent" | "signed";
 
 export const FUNNEL_FOLDER = "funnel";
 
@@ -117,7 +119,7 @@ export async function loadFunnelActivity(): Promise<FunnelActivity> {
   return {
     reached: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/reached/`)),
     responded: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/responded/`)),
-    contractsSent: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/contract-sent/`)),
-    contractsSigned: at(contracts, (p) => p.endsWith("/signed.json")),
+    contractsSent: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/contract-sent/`) || p.startsWith(`${FUNNEL_FOLDER}/summary-sent/`)),
+    contractsSigned: [...at(contracts, (p) => p.endsWith("/signed.json")), ...at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/signed/`))],
   };
 }

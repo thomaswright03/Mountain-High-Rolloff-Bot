@@ -1,11 +1,11 @@
 # Mountain High Roll-Off Bot: STATE
 
-Texts people who start booking a roll-off dumpster on mountainhighdisposal.com but don't finish, answers replies, can text a contract to e-sign. Never books anything itself. Mountain High Disposal only, Colorado only, Loveland blocked.
+Texts people who start booking a roll-off dumpster on mountainhighdisposal.com but don't finish, answers replies, and books in the text thread: code-written summary, full-name signature, office takes the card and enters the MTS contract. Never sends a link or takes a card. Mountain High Disposal only, Colorado only, Loveland blocked.
 
 ## Status (2026-10-21): TEST MODE, not deployed
 - Reads real MTS leads; texts no one; writes nothing to GHL (replies included).
 - Not on Vercel yet; GHL not connected; texting, replies and contracts never run against real systems.
-- Tests: `npm test` (166) and `npm run typecheck` pass. CI (`.github/workflows/ci.yml`) runs both.
+- Tests: `npm test` (178) and `npm run typecheck` pass. CI (`.github/workflows/ci.yml`) runs both.
 
 ## Parts
 - GitHub Actions every 10 min: `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
@@ -27,6 +27,10 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 
 ## Shared number with the residential bot (2026-10-21)
 - Both bots send from the same GHL location with no `fromNumber`, so both use the location's default number. Kaizen has no idea roll-off tags exist, so this bot steps aside for anyone tagged `ai-outreach-eligible`: not imported (one note + `ai-rolloff-skipped-residential`), not texted, replies skipped.
+
+## Booking by text (2026-10-21)
+- Thomas: no links; book in the thread like residential. `lib/rollOffBooking.ts` (answers, summary, signature, notes), `lib/rollOffReply.ts` (flow), `lib/rollOffPrompt.ts` (modes). The e-sign link path (`lib/contractLink.ts`) is gone; `api/contract.ts` stays for manual use.
+- MTS roll-off form requires a card (Thomas's test), so no automatic MTS submit: on signing the office gets a note + star and enters it. Summary covers all 7 MTS Agreements. Delivery Type is always Default Delivery.
 
 ## Not done / open
 - Low 13: a stuck `ROLLOFF_PROCESSING_TAG` is still only logged.
