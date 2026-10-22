@@ -21,7 +21,7 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - High 2: backup job + restore script (`lib/backup.ts`, `scripts/backupBlobs.ts`, `restoreBlobs.ts`), "Latest backup" row on /admin, README restore steps. Restore only tested against an in-memory store, not the real one.
 - High 3: stale-run => `overall: down` after 60 min (tested); README "Who gets alerted" names the path (Hitta on failure, CAO reads status.json for silence).
 - Medium 4-6: lowercase JSON; kill-switch pause shows Warning on "Scheduled texts"; test-mode row reports real effect; clean `rollOff.serviceArea` in the prompt.
-- Medium 7: `npm run eval` + `lib/draftChecks.ts` written; NOT yet run (needs ANTHROPIC_API_KEY), so `docs/eval-results.md` does not exist. Model still the alias; `CLAUDE_MODEL_ID` env pins a snapshot.
+- Medium 7: `npm run eval` + `lib/draftChecks.ts` written; ran live 2026-10-22 (docs/eval-results.md). Model still the alias; `CLAUDE_MODEL_ID` env pins a snapshot.
 - Medium 8: per-message reply lock (`lib/replyLock.ts`, Blob `reply-locks/`), concurrent-delivery test.
 - Low 10-12, 14 fixed (README, stale refs, CSP style, log retention documented).
 
@@ -40,11 +40,11 @@ Kill switch fail-closed; job failure alerts; /admin + JSON + Latest Update; cont
 - NOT done: dated model ID (no verified snapshot ID; needs the first eval run), `docs/eval-results.md`, cheaper model/prompt caching (needs eval), browser motion capture.
 
 ## Excellence fix round 2 (60 -> ?), 2026-10-22, done in code
-- Prompt caching (`cache_control` on system block, cache tokens logged); handoff + JSON extraction on `CLAUDE_CHEAP_MODEL` (default claude-haiku-5-5, env `CLAUDE_CHEAP_MODEL_ID`), NOT yet validated by eval.
+- Prompt caching (`cache_control` on system block, cache tokens logged); handoff + JSON extraction on `CLAUDE_CHEAP_MODEL` (default claude-haiku-5-5, env `CLAUDE_CHEAP_MODEL_ID`), validated by eval 8/8 (2026-10-22).
 - Backup row has next_expected_run (next 09:17 UTC). Stuck processing tag: swept each live send run (`releaseStuckProcessingTags`), Key row "Contacts stuck mid-send". Importer: 0 rows => Warning heartbeat.
 - Icons in `public/` (favicon.svg, apple-touch-icon.png), linked on all pages, CSP img-src 'self'.
 - `any` removed from catches (`lib/errors.ts`) and GHL JSON; TODOs moved here. 190 tests, tsc, lint pass.
-- NOT done: MTS fixture test (no saved HTML in the repo or knowledge folder), browser motion capture (no browser), compare model eval, two-part booking SMS (optional).
+- MTS fixture test now exists (mts-sync/fixtures). NOT done: browser motion capture (no browser), compare model eval, two-part booking SMS (optional).
 
 ## Open questions (moved from the company config)
 - Should the agent trust the lead's Serviceable Yes/No/Possibly field or re-derive it from a city list?

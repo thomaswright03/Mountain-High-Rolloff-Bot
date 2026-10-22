@@ -119,8 +119,9 @@ tbody tr:hover { background: rgba(63,102,82,.08); }
 button:hover { opacity: .92; } button:active { transform: scale(.98); }
 input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(63,102,82,.2); }
 .badge { transition: color .2s ease, background-color .2s ease; }
+.mob { display: none; font-size: .78rem; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-@media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } }
+@media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } .mob { display: block; } }
 `;
 
 function shell(nonce: string, title: string, body: string): string {
@@ -148,7 +149,7 @@ function statusPage(nonce: string, s: AdminStatus): string {
     return `<h2>${tier}</h2><table><thead><tr><th>Function</th><th>Status</th><th>Last checked</th><th>Last success</th><th>Detail</th></tr></thead><tbody>${rows
       .map(
         (f) =>
-          `<tr><td>${escapeHtml(f.name)}</td><td><span class="badge ${f.status}"><span aria-hidden="true">${SYMBOL[f.status]}</span> ${f.status}</span></td><td>${escapeHtml(denverTime(f.last_checked))}</td><td>${escapeHtml(denverTime(f.last_success))}</td><td>${escapeHtml(f.detail)}${f.next_expected_run ? `<br /><span class="dim">Next run expected ${escapeHtml(denverTime(f.next_expected_run))}</span>` : ""}</td></tr>`
+          `<tr><td>${escapeHtml(f.name)}</td><td><span class="badge ${f.status}"><span aria-hidden="true">${SYMBOL[f.status]}</span> ${f.status}</span><span class="dim mob">Checked ${escapeHtml(denverTime(f.last_checked))}</span></td><td>${escapeHtml(denverTime(f.last_checked))}</td><td>${escapeHtml(denverTime(f.last_success))}</td><td>${escapeHtml(f.detail)}${f.next_expected_run ? `<br /><span class="dim">Next run expected ${escapeHtml(denverTime(f.next_expected_run))}</span>` : ""}</td></tr>`
       )
       .join("")}</tbody></table>`;
   };

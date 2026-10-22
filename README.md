@@ -141,8 +141,9 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
 4. **Failure alerts.** A failed or partly failed run fails the GitHub job and
    a last step posts to Hitta (`HITTA_API_KEY` secret; without it the run log
    shows a warning). The send step runs even when pick-up failed.
-5. The first test-mode runs should be checked against the real MTS page:
-   the lead pick-up was built from a screenshot, not the page's HTML.
+5. The lead pick-up is tested against a saved copy of the real MTS leads
+   page (`mts-sync/fixtures/rolloff-leads.html`, 2026-10-22). Keep checking
+   the first live runs: if MTS changes the page, save it again.
 
 ## Status page
 
@@ -196,9 +197,9 @@ uses the repo's `ANTHROPIC_API_KEY` secret and prints the results to the
 run log and uploads `docs/eval-results.md` as an artifact. **After every
 prompt or model change, re-run it and commit that file** (date, model, pass or
 fail per case) so a regression can be traced. The model default is the alias
-`claude-sonnet-5` (`lib/claude.ts`); once the first eval run is committed, set
-`CLAUDE_MODEL_ID` in Vercel and GitHub to the dated snapshot it was run on, and
-change the default to that ID.
+`claude-sonnet-5` (`lib/claude.ts`). The eval showed the served model ID equals
+the alias, so there is no dated snapshot to pin; if one is published later,
+set `CLAUDE_MODEL_ID` and re-run the eval.
 
 ## Logs
 
@@ -209,7 +210,8 @@ and the GHL notes and tags the bot writes on every send and hand-off.
 
 ## Setup
 
-1. `npm ci`, copy `.env.example` to `.env.local` and fill it in.
+1. `npm ci`, then `npx playwright install chromium` (the lead-import test
+   needs it), copy `.env.example` to `.env.local` and fill it in.
 2. Deploy to Vercel (`vercel deploy --prod`) and set the same variables
    there. Connect a Blob store (Storage tab) for contracts and signatures.
 3. In GHL, add a workflow: trigger **Customer Replied** (SMS), filtered to
@@ -230,6 +232,7 @@ and the GHL notes and tags the bot writes on every send and hand-off.
 ## Checks
 
 ```
+npx playwright install chromium   # once, before npm test
 npm run typecheck
 npm test
 ```

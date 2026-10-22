@@ -61,7 +61,7 @@ test("signed in, /admin shows the three groups in order, the rows, and the Lates
   const html: string = r.body;
   const at = (s: string) => html.indexOf(s);
   assert.ok(at("<h2>Important</h2>") > 0 && at("<h2>Important</h2>") < at("<h2>Key</h2>") && at("<h2>Key</h2>") < at("<h2>Basic</h2>") && at("<h2>Basic</h2>") < at("Latest Update"));
-  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "GHL API", "Claude API", "MTS login", "Blob store", "GitHub Actions job", "Kill switch", "Deployed version"]) {
+  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "GHL API", "Claude API", "MTS login", "Record storage", "GitHub Actions job", "Kill switch", "Deployed version"]) {
     assert.ok(html.includes(name), name);
   }
   assert.ok(at("Frontend changes") > at("Latest Update") && at("Frontend changes") < at("Other changes"));
@@ -153,7 +153,7 @@ test("a run paused by the kill switch, or an unreachable flag with test mode off
   assert.match(rowA.detail, /kill switch/);
   const b = buildStatus(inputs({ env: { ...base.env, DRY_RUN: "false" }, killswitch: null }));
   assert.notEqual(b.functions.find((f) => f.name === "Scheduled texts")!.status, "OK");
-  assert.equal(b.functions.find((f) => f.name === "Test mode and TCPA gate")!.status, "Warning");
+  assert.equal(b.functions.find((f) => f.name === "Test mode and texting permission")!.status, "Warning");
 });
 
 test("no run for over 60 minutes makes the overall status down", () => {

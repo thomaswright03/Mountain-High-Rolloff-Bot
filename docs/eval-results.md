@@ -32,4 +32,6 @@ Run: 2026-10-22T08:54:24.146Z ([Model check run](https://github.com/thomaswright
 | hand-off: keeps booking | pass | - |
 | hand-off: defers one detail but keeps going | pass | - |
 
-The run before this one (same models) missed one hand-off case, a friendly "take care!" after a no. That case was replaced: missing that sign-off only means the bot can still answer if the lead texts again, so it isn't something the check must catch.
+The run before this one (same models) missed one hand-off case, a friendly "take care!" after a no. That case was replaced: missing that sign-off only means the bot can still answer if the lead texts again, so it isn't something the check must catch. **Accepted miss, kept on record:** a hand-off check that does not flag a friendly sign-off ("take care!") after a no. If a later model change fixes or worsens this, note it here.
+
+**Known wording issue (fixed after this run, not yet re-run):** the "weight limit question" draft above says "$85 extra per ton". The fee is one flat $85 over 1 ton. The facts block now says so and `lib/draftChecks.ts` fails any draft that pairs $85 with "per ton". Re-run the Model check workflow and commit the new file.

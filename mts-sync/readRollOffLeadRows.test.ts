@@ -15,11 +15,15 @@ const FIXTURE = readFileSync(new URL("./fixtures/rolloff-leads.html", import.met
 let browser: Browser;
 
 before(async () => {
-  browser = await chromium.launch({ headless: true });
+  try {
+    browser = await chromium.launch({ headless: true });
+  } catch (err) {
+    throw new Error(`Chromium isn't installed for Playwright. Run: npx playwright install chromium (${String(err).split("\n")[0]})`);
+  }
 });
 
 after(async () => {
-  await browser.close();
+  await browser?.close();
 });
 
 /** Reads the fixture the way the import job reads the live page. Nothing

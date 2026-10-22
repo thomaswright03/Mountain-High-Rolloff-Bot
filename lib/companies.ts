@@ -80,7 +80,8 @@ const COMPANIES: CompanyConfig[] = [
         - 20 yard: $400, up to 4 tons
         - 30 yard: $450, up to 5 tons
         Over the weight limit (from the contract's own terms): 6 and 8 yard
-        are $85 extra for anything over 1 ton; 20 and 30 yard are $50 per
+        are a flat $85 extra if the load is over 1 ton (one charge, NOT
+        per ton); 20 and 30 yard are $50 per
         ton over the limit, and $100 per ton over 10 tons.
         Delivery: within 24-48 hours of booking, and weekend days don't count
         toward those hours. Delivery on a specific day they pick is $100

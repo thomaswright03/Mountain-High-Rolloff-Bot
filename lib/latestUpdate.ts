@@ -9,13 +9,27 @@ export interface UpdateEntry {
 
 export const LATEST_UPDATES: UpdateEntry[] = [
   {
+    date: "2026-10-22 (third round)",
+    frontend: [
+      "/admin: row names and details are now in plain business language, each saying what to do; technical names are no longer in the main text.",
+      "/admin on a phone: each status now shows when it was last checked underneath it, instead of hiding the times.",
+    ],
+    changes: [
+      "Model check results are committed (docs/eval-results.md): replies 12/12 on claude-sonnet-5, booking answers and the hand-off check 8/8 on the cheaper claude-haiku-5-5, with the served model IDs recorded. This validates the cheaper-model switch from the last round.",
+      "The model check now also fails any reply that calls the 6 and 8 yard $85 overweight fee per ton; it is one flat charge, and the facts the AI is given now say so. The model check should be re-run to record this.",
+      "The lead import is tested against a saved copy of the real MTS roll-off leads page (personal details swapped for fakes).",
+      "The hand-off check was tightened: the case it must catch is now a lead who says they are done, and the eval records one accepted miss.",
+      "README: setup and checks now list the one-time browser install (npx playwright install chromium) and the lead-import test explains the fix if it is missing; stale notes about screenshots and a dated model ID corrected.",
+    ],
+  },
+  {
     date: "2026-10-22 (second round)",
     frontend: [
       "/admin, /dashboard and the signing page now show the Mountain High mark as the browser-tab icon (SVG favicon and an iPhone home-screen icon).",
       "/admin: new \"Contacts stuck mid-send\" row (Warning with a count), and \"Latest backup\" now shows the next expected run.",
     ],
     changes: [
-      "Claude calls send the stable system prompt as a cached block and log cache read/write tokens; the yes/no handoff check and JSON extraction use the cheaper Haiku model (not yet validated by npm run eval).",
+      "Claude calls send the stable system prompt as a cached block and log cache read/write tokens; the yes/no handoff check and JSON extraction use the cheaper Haiku model (validated by npm run eval in the next round).",
       "A contact stranded with the processing tag is released and noted at the start of each live send run, then retried.",
       "A pick-up run that reads zero rows from the MTS table now shows as a Warning on /admin.",
       "Error handling and GHL responses are typed instead of any; developer TODOs moved out of the company config.",

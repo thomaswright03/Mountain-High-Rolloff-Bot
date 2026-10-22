@@ -168,43 +168,43 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   rows.push(bookingEmail);
   rows.push(serviceRow("Key", "Claude API", beats.claude ?? null, now, "Claude"));
   rows.push(jobRow("Key", "MTS login", beats["mts-login"] ?? null, now, "MTS login"));
-  rows.push({ tier: "Key", name: "Blob store", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
+  rows.push({ tier: "Key", name: "Record storage", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
   const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
   rows.push(stuckRow(beats["rolloff-stuck"] ?? null));
   rows.push(backupRow(beats.backup ?? null, now));
   const job = jobRow("Key", "GitHub Actions job", latestRun, now, "scheduled job");
   const jobBad = [importBeat, sendBeat].some((b) => b && !b.ok);
-  rows.push(jobBad ? { ...job, status: "Down", detail: `A step failed in its last run. ${job.detail}` } : job);
+  rows.push(jobBad ? { ...job, status: "Down", detail: `A step failed in its last run. Ask your developer to look at the failed run. ${job.detail}` } : job);
 
   // Basic
   const hasFlag = Boolean(env.KILLSWITCH_URL);
   let ks: { status: Status; detail: string };
-  if (!hasFlag) ks = { status: "Warning", detail: testMode ? "No kill-switch URL set. Fine while in test mode, but live texting stays blocked until it is set." : "No kill-switch URL set, so everything is paused (the switch fails closed)." };
-  else if (i.killswitch?.active) ks = { status: "OK", detail: "The flag was reached and says active." };
-  else ks = { status: "Warning", detail: "PAUSED: the flag says paused, or it couldn't be reached. Texting and replies are stopped." };
+  if (!hasFlag) ks = { status: "Warning", detail: testMode ? "The emergency pause page isn't set up. That's fine while the bot is in test mode, but ask your developer to set it up before real texting starts." : "The emergency pause page isn't set up, so the bot is paused on purpose. Ask your developer to set it up." };
+  else if (i.killswitch?.active) ks = { status: "OK", detail: "The emergency pause page was reached and says the bot may run." };
+  else ks = { status: "Warning", detail: "PAUSED: the pause page says stop, or it couldn't be reached. Texts and replies are stopped. If that is a surprise, check the pause page." };
   rows.push({ tier: "Basic", name: "Kill switch", ...ks, last_checked: checked, last_success: ks.status === "OK" ? checked : null, next_expected_run: null });
   // Not a fault while in test mode (on purpose), but a live bot blocked by
   // the consent gate sends nothing, so that is a warning.
   const blocked = testMode || !ROLLOFF_TCPA_CONSENT_CONFIRMED;
   rows.push({
     tier: "Basic",
-    name: "Test mode and TCPA gate",
+    name: "Test mode and texting permission",
     status: !testMode && !ROLLOFF_TCPA_CONSENT_CONFIRMED ? "Warning" : "OK",
     last_checked: checked,
     last_success: blocked ? null : checked,
     next_expected_run: null,
-    detail: `Test mode (DRY_RUN) is ${testMode ? "ON: nothing is texted, and nothing is written to GHL" : "OFF"}. TCPA consent gate: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "confirmed" : "NOT confirmed, so no scheduled text of any kind goes out"}. ${blocked ? "The bot is not sending." : "The bot can send."}`,
+    detail: `Test mode is ${testMode ? "ON: no one is texted and nothing is saved to the contact system" : "OFF"}. Written OK to text these leads: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "received" : "NOT received yet, so no scheduled text goes out until the CEO confirms"}. ${blocked ? "The bot is not sending." : "The bot can send."}`,
   });
   // Not used by the booking-by-text flow; kept for contracts made by hand
   // (README: Manual contract signing). A fault here never takes overall down.
   const missing = ["CONTRACT_SIGNING_SECRET", "PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"].filter((k) => !env[k]);
   const pending = i.pending;
   const manual = { tier: "Basic" as Tier, name: "Manual contract signing page", last_checked: checked, next_expected_run: null };
-  if (missing.length > 0) rows.push({ ...manual, status: "Unknown", last_success: null, detail: `Not set up (${missing.join(", ")} missing). Only needed for contracts made by hand; booking by text doesn't use it.` });
-  else if (!i.blob.ok) rows.push({ ...manual, status: "Warning", last_success: null, detail: `Set up, but the Blob store didn't answer: ${i.blob.detail}` });
-  else if (pending && pending.count > 0) rows.push({ ...manual, status: "Warning", last_success: checked, detail: `${pending.count} signed contract(s) haven't reached the office in GHL yet (oldest ${pending.oldest ?? "unknown"}). The scheduled job keeps retrying.` });
-  else if (pending === null) rows.push({ ...manual, status: "Warning", last_success: null, detail: "Set up, but the list of contracts waiting for the office couldn't be read." });
-  else rows.push({ ...manual, status: "OK", last_success: checked, detail: "Signing settings are in place and no hand-made contract is waiting for the office." });
+  if (missing.length > 0) rows.push({ ...manual, status: "Unknown", last_success: null, detail: `Not set up. Only needed for contracts made by hand; booking by text doesn't use it, so no action is needed. (Missing: ${missing.join(", ")})` });
+  else if (!i.blob.ok) rows.push({ ...manual, status: "Warning", last_success: null, detail: `Set up, but record storage isn't answering right now. Ask your developer to check it. (${i.blob.detail})` });
+  else if (pending && pending.count > 0) rows.push({ ...manual, status: "Warning", last_success: checked, detail: `${pending.count} signed contract(s) haven't reached the office yet (oldest ${pending.oldest ?? "unknown"}). The bot keeps retrying; call the customer if it lasts more than a day.` });
+  else if (pending === null) rows.push({ ...manual, status: "Warning", last_success: null, detail: "Set up, but the list of signed contracts waiting for the office couldn't be read. Ask your developer to check it." });
+  else rows.push({ ...manual, status: "OK", last_success: checked, detail: "Ready, and no hand-made contract is waiting for the office." });
   const sha = env.VERCEL_GIT_COMMIT_SHA;
   rows.push({
     tier: "Basic",
@@ -213,7 +213,7 @@ export function buildStatus(i: StatusInputs): AdminStatus {
     last_checked: checked,
     last_success: sha ? checked : null,
     next_expected_run: null,
-    detail: sha ? `Commit ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""}. See Latest Update below for the last change round.` : "Not running on Vercel, so there is no deployed version to report.",
+    detail: sha ? `Version ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""} is live. See Latest Update below for what changed.` : "Not running on Vercel, so there is no deployed version to report.",
   });
 
   const important = rows.filter((r) => r.tier === "Important");
@@ -243,17 +243,17 @@ export async function collectStatus(env: NodeJS.ProcessEnv = process.env, now: D
 }
 
 async function checkBlob(env: NodeJS.ProcessEnv): Promise<{ ok: boolean; detail: string }> {
-  if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "No Blob store is connected (BLOB_READ_WRITE_TOKEN is not set)." };
+  if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "No record storage is connected, so signed bookings and counts can't be kept. Ask your developer to connect it." };
   try {
     await list({ prefix: `${blobFolder("status")}/`, limit: 1 });
-    return { ok: true, detail: "The store answered a list request." };
+    return { ok: true, detail: "Record storage is answering." };
   } catch (err: unknown) {
     return { ok: false, detail: String(errorMessage(err) ?? err).slice(0, 200) };
   }
 }
 
 async function checkGhl(env: NodeJS.ProcessEnv): Promise<{ status: Status; detail: string }> {
-  if (!env.GHL_API_TOKEN || !env.GHL_LOCATION_ID) return { status: "Unknown", detail: "GHL isn't connected yet (GHL_API_TOKEN or GHL_LOCATION_ID not set)." };
+  if (!env.GHL_API_TOKEN || !env.GHL_LOCATION_ID) return { status: "Unknown", detail: "The contact system (GoHighLevel) isn't connected yet. Ask your developer to connect it before real texting." };
   try {
     const base = env.GHL_API_BASE_URL ?? "https://services.leadconnectorhq.com";
     const res = await fetch(`${base}/locations/${encodeURIComponent(env.GHL_LOCATION_ID)}`, {
