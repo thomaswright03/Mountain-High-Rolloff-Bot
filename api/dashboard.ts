@@ -205,7 +205,7 @@ function signInPage(nonce: string, error = "", showForm = true): string {
   return shell(
     nonce,
     `${findCompany(BRAND)?.displayName ?? BRAND}: roll-off dashboard`,
-    `${masthead(`<p class="sub">Sign in to see roll-off leads reached and contracts signed.</p>`)}
+    `${masthead(`<p class="sub">Sign in to see roll-off leads reached and bookings signed.</p>`)}
   <div class="card narrow">
     ${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ""}
     ${form}

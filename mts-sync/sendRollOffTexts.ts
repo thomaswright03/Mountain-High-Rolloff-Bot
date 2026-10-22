@@ -345,7 +345,8 @@ export async function run(contactIdOverride?: string): Promise<void> {
         if (!dryRun) {
           try {
             await addTag(entry.contactId, NEEDS_HUMAN_TAG);
-            await addNote(entry.contactId, `AI roll-off text hit an error and could not send: ${errorMessage(err)}`);
+            // The office sees plain words; the technical error is in the log above.
+            await addNote(entry.contactId, "The AI couldn't send its roll-off text to this person because of a technical problem. Please text or call them yourself.");
           } catch {
             // swallow — the original error above is already logged
           }
