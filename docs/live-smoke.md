@@ -10,4 +10,4 @@ Nothing below has been run yet. Each step needs a real system (GHL, Blob, Vercel
 | Backup restore: download latest `blob-backup` artifact, `npm run restore -- <folder> restore-test/`, open one file | real Blob store | not run |
 | Vercel rollback: promote previous deployment, then roll forward | Vercel dashboard | not run |
 
-The consent gate (`ROLLOFF_TCPA_CONSENT_CONFIRMED` in lib/rollOff.ts) still blocks scheduled sends; the test contact run needs a per-contact allow-list or Thomas's approval to flip it briefly.
+The consent gate (`ROLLOFF_TCPA_CONSENT_CONFIRMED` in lib/rollOff.ts) is open since 2026-11-03, so with DRY_RUN off the scheduled job texts every eligible lead, not just a test contact.

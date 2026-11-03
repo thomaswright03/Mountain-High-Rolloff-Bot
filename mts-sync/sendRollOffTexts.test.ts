@@ -146,7 +146,7 @@ test("the first text that goes out counts the lead as reached on the dashboard, 
 
 test("nothing is counted as reached when nothing went out", async () => {
   assert.equal(await processEntry({ contactId: "too_new" }, live()), "skipped");
-  assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW }), "retry");
+  assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW, consentConfirmed: false }), "retry");
   assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts: async () => [{ custNumber: "42", name: "Jane Doe", medium: "Website", status: "Active", saleDate: "10/10/2026" }] })), "skipped");
   assert.equal(funnel.files.size, 0);
 });
@@ -167,7 +167,7 @@ test("nothing goes out overnight — held for the next run in business hours", a
 });
 
 test("until the CEO OKs texting roll-off leads, nothing sends and nothing is written", async () => {
-  assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW }), "retry");
+  assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW, consentConfirmed: false }), "retry");
   assert.equal(ghl.sentMessages.length, 0);
   assert.equal(ghl.taggedContacts.length, 0);
   assert.equal(ghl.notes.length, 0);

@@ -130,8 +130,9 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
    needs no commit. In test mode it only logs what it would pick up and send,
    and writes nothing to GHL, replies included (opt-out and hand-off tags and
    notes are logged, not written). Set the same `DRY_RUN` in Vercel.
-2. `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `lib/rollOff.ts` stays
-   `false` until Mountain High's CEO OKs texting these leads.
+2. `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `lib/rollOff.ts` is `true` since
+   2026-11-03, when the go-ahead to text these leads came through. Set it
+   back to `false` to stop scheduled texts with a deploy (replies keep going).
 3. **Kill switch.** Host a `{"active":true}` file and set `KILLSWITCH_URL`
    (GitHub secret and Vercel env var). Flip it to `{"active":false}` to stop
    the importer, the sender and the reply webhook with no deploy. It fails
