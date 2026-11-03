@@ -4,13 +4,13 @@ Texts people who start booking a roll-off dumpster on mountainhighdisposal.com b
 
 ## Status (2026-10-22): deployed, still TEST MODE
 - Live at https://mountain-high-rolloff-bot.vercel.app (/dashboard, /admin, /admin/status.json). Thomas ticked off: Vercel deploy + GHL and signing secrets, GHL connected, kill-switch URL, HITTA_API_KEY, branch protection, eval run, MTS fixture.
-- DRY_RUN is on (repo variable) and `ROLLOFF_TCPA_CONSENT_CONFIRMED=false` (lib/rollOff.ts): no scheduled text goes out. Texting, replies, booking and the email have never run against real GHL (docs/live-smoke.md lists what is unrun).
+- Go-ahead received 2026-11-03: `ROLLOFF_TCPA_CONSENT_CONFIRMED=true` (lib/rollOff.ts). Scheduled texts start once DRY_RUN is turned off (GitHub repo variable and Vercel). Texting, replies, booking and the email have never run against real GHL (docs/live-smoke.md lists what is unrun).
 - Tests: `npm test` (195), `npm run typecheck`, `npm run lint` pass. CI runs all three.
 
 ## Parts
 - GitHub Actions every 10 min: `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
 - Vercel: `api/webhook.ts` (replies), `api/contract.ts` (e-sign), `api/dashboard.ts`, `api/admin.ts` (+ `/admin/status.json`, lowercase enums).
-- Safety: kill switch (fails closed when live), DRY_RUN (repo variable), `ROLLOFF_TCPA_CONSENT_CONFIRMED=false` in `lib/rollOff.ts`.
+- Safety: kill switch (fails closed when live), DRY_RUN (repo variable), `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `lib/rollOff.ts` (true since 2026-11-03).
 - Blob folders: `lib/blobNamespace.ts`; workflows set `BLOB_NAMESPACE=production` so job and Vercel share `status/`, `pending/`, `contracts/`.
 
 ## Earlier rounds

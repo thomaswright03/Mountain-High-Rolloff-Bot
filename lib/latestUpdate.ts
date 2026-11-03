@@ -9,6 +9,15 @@ export interface UpdateEntry {
 
 export const LATEST_UPDATES: UpdateEntry[] = [
   {
+    date: "2026-11-03",
+    frontend: [
+      "/admin: \"Test mode and texting permission\" now shows the written OK as received; it reads \"The bot can send\" once test mode is turned off.",
+    ],
+    changes: [
+      "Go-live: the go-ahead to text roll-off leads came through, so the consent gate is open. Scheduled texts start when DRY_RUN is turned off in GitHub and Vercel; the kill switch still stops everything.",
+    ],
+  },
+  {
     date: "2026-10-22 (sixth round)",
     frontend: [
       "The bare web address now opens the dashboard, and any other unknown address shows a Mountain High page with links and the office phone instead of Vercel's error page.",

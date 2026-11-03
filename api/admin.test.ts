@@ -153,7 +153,10 @@ test("a run paused by the kill switch, or an unreachable flag with test mode off
   assert.match(rowA.detail, /kill switch/);
   const b = buildStatus(inputs({ env: { ...base.env, DRY_RUN: "false" }, killswitch: null }));
   assert.notEqual(b.functions.find((f) => f.name === "Scheduled texts")!.status, "OK");
-  assert.equal(b.functions.find((f) => f.name === "Test mode and texting permission")!.status, "Warning");
+  // The CEO's OK came through on 2026-11-03, so with test mode off the bot can send.
+  const permission = b.functions.find((f) => f.name === "Test mode and texting permission")!;
+  assert.equal(permission.status, "OK");
+  assert.match(permission.detail, /The bot can send/);
 });
 
 test("no run for over 60 minutes makes the overall status down", () => {
