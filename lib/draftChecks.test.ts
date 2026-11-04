@@ -17,6 +17,7 @@ test("links, template markers, unapproved amounts, date promises, 'booked' claim
   assert.deepEqual(gradeDraft("over 1 ton it's a flat $85 extra"), []);
   // Live Model check, 2026-11-04: the right answer was failed.
   assert.deepEqual(gradeDraft("go over that and it's a flat $85 extra, not per ton."), []);
+  assert.deepEqual(gradeDraft("go over that and it's a flat $85 extra, no per ton charge."), []);
   assert.ok(gradeDraft("we'll deliver it Saturday morning").includes("promises a delivery date"));
   assert.ok(gradeDraft("you're booked for the 20 yard").includes("says it is booked"));
   assert.ok(gradeDraft("I'm a real person here").includes("denies being an AI"));
