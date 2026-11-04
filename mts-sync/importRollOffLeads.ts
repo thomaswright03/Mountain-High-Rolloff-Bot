@@ -14,15 +14,26 @@
 import { chromium, type Page } from "playwright";
 import { findCompany } from "../lib/companies.js";
 import { selectRollOffLeads, AI_ROLLOFF_LEAD_NOTE_MARKER, type MtsRollOffRow, type RollOffLead } from "../lib/rollOffIntake.js";
-import { ROLLOFF_ELIGIBLE_TAG, ROLLOFF_SKIPPED_RESIDENTIAL_TAG, RESIDENTIAL_TAG } from "../lib/rollOff.js";
-import { getContact, upsertContact, addTag, addNote } from "../lib/ghl.js";
+import {
+  ROLLOFF_ELIGIBLE_TAG,
+  ROLLOFF_SKIPPED_RESIDENTIAL_TAG,
+  RESIDENTIAL_TAG,
+  ROLLOFF_COLD_OPEN_SENT_TAG,
+  ROLLOFF_FOLLOWUP_1_TAG,
+  ROLLOFF_FOLLOWUP_2_TAG,
+  ROLLOFF_BOOKED_TAG,
+  NEEDS_HUMAN_TAG,
+  OPTED_OUT_TAG,
+  TARGET_COMPANY,
+} from "../lib/rollOff.js";
+import { ROLLOFF_CONFIRMED_TAG } from "../lib/rollOffBooking.js";
+import { findContactByPhone, upsertContact, addTag, removeTag, addNote, getNotes, extractCompanyValue } from "../lib/ghl.js";
 import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
 import { loginToMts } from "./mtsLogin.js";
 import { errorMessage } from "../lib/errors.js";
 
-const TARGET_COMPANY = "Mountain High Disposal";
 const LIST_URL = "https://kaizen.maxtrackingsolutions.com/rolloffleads/list";
 /** Blast-radius limit per run, same idea as the sender's cap. */
 const IMPORT_CAP = 25;
@@ -122,45 +133,98 @@ export async function readRollOffLeadRows(page: Page): Promise<MtsRollOffRow[]> 
   });
 }
 
-export type ImportOutcome = "imported" | "already_tagged" | "residential_lead" | "dry_run";
+export type ImportOutcome = "imported" | "already_tagged" | "restarted" | "residential_lead" | "dry_run";
 
-/** Creates or updates the GHL contact and tags it for the roll-off flow.
- * Someone already tagged is left alone, so a lead seen on every run is
- * only picked up once. */
+/** A lead who finished the texts this long ago and starts a new booking
+ * online gets a fresh sequence (grader, 2026-11-04). */
+export const RESTART_AFTER_DAYS = 30;
+
+/** Tags that end the roll-off texts for good, or until a person clears
+ * them: a returning lead carrying one is never restarted. */
+const NEVER_RESTART_TAGS = [OPTED_OUT_TAG, NEEDS_HUMAN_TAG, ROLLOFF_CONFIRMED_TAG];
+/** What the last sequence left behind; cleared when a new one starts. */
+const SEQUENCE_TAGS = [ROLLOFF_COLD_OPEN_SENT_TAG, ROLLOFF_FOLLOWUP_1_TAG, ROLLOFF_FOLLOWUP_2_TAG, ROLLOFF_BOOKED_TAG];
+
+const ADDRESS_FIELDS = ["firstName", "lastName", "email", "address1", "city", "state", "postalCode"] as const;
+
+const blank = (v: unknown) => typeof v !== "string" || v.trim() === "";
+
+function pickUpNote(lead: RollOffLead, now: Date, again = false): string {
+  return `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead ${lead.mtsId}, dated ${lead.date}). Picked up ${now.toISOString()}${again ? ", as a new booking attempt: the roll-off texts start over" : ""}.`;
+}
+
+/** Looks the contact up by phone first and only then decides what it may
+ * write (grader, 2026-11-04: GHL is shared with the residential bot and the
+ * office, so a pick-up must never overwrite what's there):
+ * - already in the roll-off flow: nothing is written, unless it's a new
+ *   booking attempt RESTART_AFTER_DAYS after the last pick-up, which starts
+ *   the texts over;
+ * - a residential lead: one note and the skipped tag, nothing else;
+ * - an existing contact: only its empty fields are filled in;
+ * - nobody: a new contact with everything MTS has. */
 export async function importLead(lead: RollOffLead, opts: { dryRun: boolean; now?: Date }): Promise<ImportOutcome> {
   const company = findCompany(TARGET_COMPANY)!;
+  const now = opts.now ?? new Date();
   if (opts.dryRun) {
     logEvent({ event: "rolloff_import_dry_run", mtsId: lead.mtsId, date: lead.date, city: lead.city });
     return "dry_run";
   }
 
-  const contactId = await upsertContact({
-    locationId: process.env.GHL_LOCATION_ID,
-    firstName: lead.firstName || undefined,
-    lastName: lead.lastName || undefined,
-    phone: lead.phone,
-    email: lead.email || undefined,
-    address1: lead.address1,
-    city: lead.city,
-    state: lead.state,
-    postalCode: lead.postalCode,
-    customFields: [{ id: process.env.GHL_COMPANY_FIELD_KEY, value: company.matchValue }],
-  });
+  const locationId = process.env.GHL_LOCATION_ID;
+  const companyField = { id: process.env.GHL_COMPANY_FIELD_KEY, value: company.matchValue };
+  const existing = await findContactByPhone(locationId ?? "", lead.phone);
 
-  const contact = await getContact(contactId);
-  const tags: string[] = (contact.tags ?? []).map((t: string) => t.toLowerCase());
-  if (tags.includes(ROLLOFF_ELIGIBLE_TAG)) {
-    logEvent({ event: "rolloff_import_already_tagged", contactId, mtsId: lead.mtsId });
-    return "already_tagged";
+  if (!existing) {
+    const contactId = await upsertContact({
+      locationId,
+      firstName: lead.firstName || undefined,
+      lastName: lead.lastName || undefined,
+      phone: lead.phone,
+      email: lead.email || undefined,
+      address1: lead.address1,
+      city: lead.city,
+      state: lead.state,
+      postalCode: lead.postalCode,
+      customFields: [companyField],
+    });
+    await addNote(contactId, pickUpNote(lead, now));
+    await addTag(contactId, ROLLOFF_ELIGIBLE_TAG);
+    logEvent({ event: "rolloff_import_tagged", contactId, mtsId: lead.mtsId, created: true });
+    return "imported";
   }
+
+  const contactId = String(existing.id);
+  const tags: string[] = (existing.tags ?? []).map((t: string) => t.toLowerCase());
+
+  if (tags.includes(ROLLOFF_ELIGIBLE_TAG)) {
+    if (tags.some((t) => NEVER_RESTART_TAGS.includes(t)) || existing.dnd === true) {
+      logEvent({ event: "rolloff_import_already_tagged", contactId, mtsId: lead.mtsId });
+      return "already_tagged";
+    }
+    const notes = await getNotes(contactId);
+    const pickUps = notes.filter((n) => n.body.startsWith(AI_ROLLOFF_LEAD_NOTE_MARKER));
+    const lastPickUp = Math.max(...pickUps.map((n) => Date.parse(n.dateAdded)).filter(Number.isFinite), 0);
+    const seenThisLead = pickUps.some((n) => n.body.includes(`MTS roll-off lead ${lead.mtsId},`));
+    if (pickUps.length === 0 || seenThisLead || now.getTime() - lastPickUp < RESTART_AFTER_DAYS * 86_400_000) {
+      logEvent({ event: "rolloff_import_already_tagged", contactId, mtsId: lead.mtsId });
+      return "already_tagged";
+    }
+    // Note first: the sender reads the newest pick-up note as when this
+    // attempt started, and ignores a cold-open note older than it.
+    await addNote(contactId, pickUpNote(lead, now, true));
+    for (const tag of SEQUENCE_TAGS) if (tags.includes(tag)) await removeTag(contactId, tag);
+    logEvent({ event: "rolloff_import_restarted", contactId, mtsId: lead.mtsId });
+    return "restarted";
+  }
+
   // The residential bot already owns this person (see lib/rollOff.ts), so
-  // they're never added here. The office gets one note so it knows they
-  // also started a roll-off booking.
+  // they're never added here and their record is left as it is. The office
+  // gets one note so it knows they also started a roll-off booking.
   if (tags.includes(RESIDENTIAL_TAG)) {
     if (!tags.includes(ROLLOFF_SKIPPED_RESIDENTIAL_TAG)) {
       await addNote(
         contactId,
-        `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead ${lead.mtsId}, dated ${lead.date}), but is already a residential lead, so the roll-off bot won't text them. Follow up by hand if needed.`
+        `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead ${lead.mtsId}, dated ${lead.date}${lead.address1 ? `, for ${lead.address1}, ${lead.city}` : ""}), but is already a residential lead, so the roll-off bot won't text them. Follow up by hand if needed.`
       );
       await addTag(contactId, ROLLOFF_SKIPPED_RESIDENTIAL_TAG);
     }
@@ -168,13 +232,38 @@ export async function importLead(lead: RollOffLead, opts: { dryRun: boolean; now
     return "residential_lead";
   }
 
-  await addNote(
-    contactId,
-    `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead ${lead.mtsId}, dated ${lead.date}). Picked up ${(opts.now ?? new Date()).toISOString()}.`
-  );
+  // An existing contact (a past customer, say): fill in only what's empty.
+  const fill: Record<string, unknown> = {};
+  for (const key of ADDRESS_FIELDS) if (blank(existing[key]) && !blank(lead[key])) fill[key] = lead[key];
+  if (blank(extractCompanyValue(existing, process.env.GHL_COMPANY_FIELD_KEY ?? "company"))) fill.customFields = [companyField];
+  if (Object.keys(fill).length > 0) await upsertContact({ locationId, phone: lead.phone, ...fill });
+  await addNote(contactId, pickUpNote(lead, now));
   await addTag(contactId, ROLLOFF_ELIGIBLE_TAG);
-  logEvent({ event: "rolloff_import_tagged", contactId, mtsId: lead.mtsId });
+  logEvent({ event: "rolloff_import_tagged", contactId, mtsId: lead.mtsId, filled: Object.keys(fill) });
   return "imported";
+}
+
+/** Picks up each lead in turn. The cap counts new pick-ups only, so leads
+ * already in the flow (re-read on every run for two days) never crowd out
+ * new ones. */
+export async function importLeads(leads: RollOffLead[], opts: { dryRun: boolean; now: Date; cap?: number }): Promise<{ imported: number; errored: number }> {
+  const cap = opts.cap ?? IMPORT_CAP;
+  let imported = 0;
+  let errored = 0;
+  for (const lead of leads) {
+    if (imported >= cap) {
+      logEvent({ event: "rolloff_import_cap_reached", cap, mtsId: lead.mtsId });
+      break;
+    }
+    try {
+      const outcome = await importLead(lead, opts);
+      if (outcome === "imported" || outcome === "restarted") imported++;
+    } catch (err: unknown) {
+      logEvent({ event: "rolloff_import_error", mtsId: lead.mtsId, error: errorMessage(err) });
+      errored++;
+    }
+  }
+  return { imported, errored };
 }
 
 export async function run(): Promise<void> {
@@ -195,7 +284,8 @@ export async function run(): Promise<void> {
     try {
       await loginToMts(page);
     } catch (err: unknown) {
-      await recordHeartbeat("mts-login", false, String(errorMessage(err) ?? err));
+      logEvent({ event: "mts_login_failed", error: errorMessage(err) });
+      await recordHeartbeat("mts-login", false, "couldn't sign in to MTS. Check the bot's MTS email and password still work");
       throw err;
     }
     await recordHeartbeat("mts-login", true, "logged in");
@@ -208,16 +298,7 @@ export async function run(): Promise<void> {
   console.log(`Read ${rows.length} roll-off lead row(s): ${leads.length} to pick up, ${skipped.length} skipped.`);
   for (const s of skipped) logEvent({ event: "rolloff_import_skip", mtsId: s.id, reason: s.reason });
 
-  let imported = 0;
-  let errored = 0;
-  for (const lead of leads.slice(0, IMPORT_CAP)) {
-    try {
-      if ((await importLead(lead, { dryRun, now })) === "imported") imported++;
-    } catch (err: unknown) {
-      logEvent({ event: "rolloff_import_error", mtsId: lead.mtsId, error: errorMessage(err) });
-      errored++;
-    }
-  }
+  const { imported, errored } = await importLeads(leads, { dryRun, now });
   console.log(`Done. Picked up: ${imported}, errored: ${errored}${dryRun ? " (DRY_RUN: nothing written to GHL)" : ""}`);
   // An empty table is how a changed MTS page would look: surface it instead of quietly picking up nothing.
   const noRows = rows.length === 0;
@@ -237,7 +318,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
   run().catch(async (err) => {
     console.error(err);
-    await recordHeartbeat("rolloff-import", false, `crashed: ${errorMessage(err) ?? err}`);
+    await recordHeartbeat("rolloff-import", false, "stopped with an error before finishing (the GitHub run log has the details)");
     process.exit(1);
   });
 }

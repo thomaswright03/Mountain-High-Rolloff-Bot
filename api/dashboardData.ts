@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ timezone: company.timezone, stats, notices: notices(storeConnected) });
   } catch (err: unknown) {
     logEvent({ event: "dashboard_data_error", error: errorMessage(err) });
-    res.status(500).json({ error: "the store didn't answer, try again in a minute." });
+    res.status(500).json({ error: "The numbers couldn't be loaded. Try again in a minute." });
   }
 }
 
@@ -50,13 +50,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 export function notices(storeConnected: boolean, env: NodeJS.ProcessEnv = process.env): string[] {
   const out: string[] = [];
   if (!storeConnected) {
-    out.push("No Blob store is connected to this site yet, so there's nothing to count. Connect one in Vercel under Storage.");
+    out.push("The bot has nowhere to save its counts yet, so there's nothing to show. Ask your developer to connect it.");
   }
   if (env.DRY_RUN === "true") {
     out.push("Test mode: the bot isn't texting any leads yet, so nothing it does is counted until it goes live.");
-  }
-  if (findCompany(BRAND)?.rollOff?.contract.standardTerms == null) {
-    out.push("Contracts are marked TEST, not binding, until Mountain High's own roll-off terms are added.");
   }
   return out;
 }

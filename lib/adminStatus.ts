@@ -1,9 +1,12 @@
 import { list } from "@vercel/blob";
 import { blobFolder } from "./blobNamespace.js";
 import { isServiceActive } from "./killswitch.js";
-import { pendingNoticeSummary } from "./pendingNotices.js";
 import { readHeartbeat, statusStoreReady, type Heartbeat } from "./runStatus.js";
-import { ROLLOFF_TCPA_CONSENT_CONFIRMED } from "./rollOff.js";
+import { ROLLOFF_TCPA_CONSENT_CONFIRMED, TARGET_COMPANY } from "./rollOff.js";
+import { bookingEmailFor, findCompany } from "./companies.js";
+import { countParkedReplies } from "./parkedReplies.js";
+import { loadQualitySummary, QUALITY_WINDOW_DAYS, type QualitySummary } from "./replyQuality.js";
+import { logEvent } from "./logging.js";
 import { errorMessage } from "./errors.js";
 
 export type Status = "OK" | "Warning" | "Down" | "Unknown";
@@ -43,13 +46,19 @@ export interface StatusInputs {
   blob: { ok: boolean; detail: string };
   ghl: { status: Status; detail: string };
   killswitch: { active: boolean } | null;
-  pending: { count: number; oldest: string | null } | null;
+  /** Texts parked while the bot was paused, or null if they can't be counted. */
+  parked: number | null;
+  /** Model drafts checked before sending, or null if they can't be read. */
+  quality: QualitySummary | null;
 }
 
 /** Rows that only change when a lead acts: no record yet is Unknown, but not a reason to warn. */
-const EVENT_DRIVEN = new Set(["Contacts stuck mid-send", "Bookings signed by text", "Booking email to the office"]);
+const EVENT_DRIVEN = new Set(["Contacts stuck mid-send", "Bookings signed by text", "Booking email to the office", "Reply quality"]);
 
-const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "claude", "mts-login", "backup", "booking-signed", "booking-email", "rolloff-stuck"];
+const BEAT_NAMES = ["rolloff-import", "rolloff-send", "replies", "replies-unanswered", "claude", "mts-login", "backup", "booking-signed", "booking-email", "rolloff-stuck"];
+
+/** More than this share of AI texts held back by the checks is a Warning. */
+const QUALITY_WARN_SHARE = 0.1;
 
 /** The backup job runs daily; later than this is stale. */
 const BACKUP_WARN_HOURS = 30;
@@ -130,6 +139,25 @@ function backupRow(beat: Heartbeat | null, now: Date): FunctionStatus {
   return { ...base, status: "OK", detail: `${Math.round(hours)} hours old. ${beat.detail}` };
 }
 
+/** Texts that came in while the bot was paused, waiting to be answered. */
+function parkedRow(parked: number | null, checked: string): FunctionStatus {
+  const base = { tier: "Key" as Tier, name: "Texts waiting from a pause", last_checked: checked, next_expected_run: null };
+  if (parked === null) return { ...base, status: "Warning", last_success: null, detail: "Couldn't count the texts that came in while the bot was paused. Ask your developer to check the saved records." };
+  if (parked > 0) return { ...base, status: "Warning", last_success: checked, detail: `${parked} lead text(s) came in while the bot was paused. They're answered, or handed to the office if they're more than half a day old, on the first scheduled run after the bot is turned back on.` };
+  return { ...base, status: "OK", last_success: checked, detail: "No texts are waiting." };
+}
+
+/** Every AI-written text is checked before it's sent (lib/draftChecks.ts);
+ * this is how many passed over the last week. */
+function qualityRow(q: QualitySummary | null, checked: string): FunctionStatus {
+  const base = { tier: "Key" as Tier, name: "Reply quality", last_checked: checked, next_expected_run: null };
+  if (q === null) return { ...base, status: "Unknown", last_success: null, detail: "The reply checks couldn't be read. Ask your developer to check the saved records." };
+  if (q.checked === 0) return { ...base, status: "Unknown", last_success: null, detail: `No AI-written text in the last ${QUALITY_WINDOW_DAYS} days.` };
+  const passed = q.checked - q.held;
+  const detail = `${passed} of ${q.checked} AI-written texts in the last ${QUALITY_WINDOW_DAYS} days passed every check (approved prices only, no promised delivery day, never "booked", no card request, no link).${q.held ? ` ${q.held} failed one, so it wasn't sent and the office got that lead.` : ""}`;
+  return { ...base, status: q.held / q.checked > QUALITY_WARN_SHARE ? "Warning" : "OK", last_success: checked, detail };
+}
+
 export function buildStatus(i: StatusInputs): AdminStatus {
   const { now, env, beats } = i;
   const checked = now.toISOString();
@@ -151,6 +179,18 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   const replies = serviceRow("Important", "Replies answered", beats.replies ?? null, now, "the reply path");
   // Replies only happen when a lead texts in, so a quiet day isn't a fault.
   if (replies.status === "Warning" && beats.replies?.ok) replies.status = "OK";
+  // But a lead text nobody answered is: the scheduled job looks for any
+  // that waited too long, which is how a switched-off or broken GHL
+  // "Customer Replied" workflow shows up (lib/inbound.ts never hears of it).
+  const unanswered = beats["replies-unanswered"] ?? null;
+  if (unanswered && !unanswered.ok && minutesSince(unanswered.lastRun, now) <= JOB_DOWN_MIN) {
+    replies.status = "Down";
+    replies.detail = unanswered.detail;
+    replies.last_checked = unanswered.lastRun;
+  } else if (unanswered?.ok && replies.status !== "Down") {
+    replies.detail = `${replies.status === "Unknown" ? "No reply has come in yet since status recording started" : replies.detail}. Checked ${Math.round(minutesSince(unanswered.lastRun, now))} minutes ago: ${unanswered.detail}.`;
+    if (replies.status === "Unknown") replies.status = "OK";
+  }
   rows.push(replies);
 
   // Booking by text: a lead signs by replying with their full name. Signing
@@ -166,10 +206,23 @@ export function buildStatus(i: StatusInputs): AdminStatus {
   // The signed booking goes to the customer team by email through GHL.
   const bookingEmail = serviceRow("Key", "Booking email to the office", beats["booking-email"] ?? null, now, "the booking email");
   if (bookingEmail.status === "Warning" && beats["booking-email"]?.ok) bookingEmail.status = "OK";
+  const company = findCompany(TARGET_COMPANY);
+  const email = company ? bookingEmailFor(company, env) : { to: null, isTeam: false };
+  if (!email.to) {
+    bookingEmail.status = "Warning";
+    bookingEmail.detail = "No address is set, so signed bookings aren't emailed (the office still gets the note and star in GoHighLevel). Ask your developer to set the customer team's address.";
+  } else if (!email.isTeam && bookingEmail.status !== "Down") {
+    bookingEmail.status = "Warning";
+    bookingEmail.detail = `Signed bookings are emailed to ${email.to}, a stand-in, not Mountain High's customer team. Ask your developer to set the team's address. ${bookingEmail.detail}`;
+  } else if (bookingEmail.status !== "Down") {
+    bookingEmail.detail = `Signed bookings are emailed to ${email.to}. ${bookingEmail.detail}`;
+  }
   rows.push(bookingEmail);
+  rows.push(parkedRow(i.parked, checked));
+  rows.push(qualityRow(i.quality, checked));
   rows.push(serviceRow("Key", "AI replies (Claude)", beats.claude ?? null, now, "Claude"));
   rows.push(jobRow("Key", "MTS sign-in", beats["mts-login"] ?? null, now, "MTS login"));
-  rows.push({ tier: "Key", name: "Record storage", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
+  rows.push({ tier: "Key", name: "Saved records", status: i.blob.ok ? "OK" : "Down", last_checked: checked, last_success: i.blob.ok ? checked : null, next_expected_run: null, detail: i.blob.detail });
   const latestRun = [importBeat, sendBeat].filter((b): b is Heartbeat => Boolean(b)).sort((a, b) => b.lastRun.localeCompare(a.lastRun))[0] ?? null;
   rows.push(stuckRow(beats["rolloff-stuck"] ?? null));
   rows.push(backupRow(beats.backup ?? null, now));
@@ -196,16 +249,6 @@ export function buildStatus(i: StatusInputs): AdminStatus {
     next_expected_run: null,
     detail: `Test mode is ${testMode ? "ON: no one is texted and nothing is saved to the contact system" : "OFF"}. Written OK to text these leads: ${ROLLOFF_TCPA_CONSENT_CONFIRMED ? "received" : "NOT received yet, so no scheduled text goes out until the CEO confirms"}. ${blocked ? "The bot is not sending." : "The bot can send."}`,
   });
-  // Not used by the booking-by-text flow; kept for contracts made by hand
-  // (README: Manual contract signing). A fault here never takes overall down.
-  const missing = ["CONTRACT_SIGNING_SECRET", "PUBLIC_BASE_URL", "BLOB_READ_WRITE_TOKEN"].filter((k) => !env[k]);
-  const pending = i.pending;
-  const manual = { tier: "Basic" as Tier, name: "Manual contract signing page", last_checked: checked, next_expected_run: null };
-  if (missing.length > 0) rows.push({ ...manual, status: "Unknown", last_success: null, detail: `Not set up. Only needed for contracts made by hand; booking by text doesn't use it, so no action is needed. (Missing: ${missing.join(", ")})` });
-  else if (!i.blob.ok) rows.push({ ...manual, status: "Warning", last_success: null, detail: `Set up, but record storage isn't answering right now. Ask your developer to check it. (${i.blob.detail})` });
-  else if (pending && pending.count > 0) rows.push({ ...manual, status: "Warning", last_success: checked, detail: `${pending.count} signed contract(s) haven't reached the office yet (oldest ${pending.oldest ?? "unknown"}). The bot keeps retrying; call the customer if it lasts more than a day.` });
-  else if (pending === null) rows.push({ ...manual, status: "Warning", last_success: null, detail: "Set up, but the list of signed contracts waiting for the office couldn't be read. Ask your developer to check it." });
-  else rows.push({ ...manual, status: "OK", last_success: checked, detail: "Ready, and no hand-made contract is waiting for the office." });
   const sha = env.VERCEL_GIT_COMMIT_SHA;
   // DEPLOYED_AT (ISO time) is set at deploy; shown in Denver time when valid.
   const deployedAt = (v?: string) => {
@@ -220,7 +263,7 @@ export function buildStatus(i: StatusInputs): AdminStatus {
     last_checked: checked,
     last_success: sha ? checked : null,
     next_expected_run: null,
-    detail: sha ? `Version ${sha.slice(0, 7)}${env.VERCEL_ENV ? ` (${env.VERCEL_ENV})` : ""} is live${deployedAt(env.DEPLOYED_AT)}. See Latest Update below for what changed.` : "Not running on Vercel, so there is no deployed version to report.",
+    detail: sha ? `Version ${sha.slice(0, 7)} is live${deployedAt(env.DEPLOYED_AT)}. See Latest Update below for what changed.` : "This copy isn't the live website, so there is no deployed version to report.",
   });
 
   const important = rows.filter((r) => r.tier === "Important");
@@ -238,24 +281,29 @@ export function buildStatus(i: StatusInputs): AdminStatus {
 
 /** Real checks against the outside world, then buildStatus. */
 export async function collectStatus(env: NodeJS.ProcessEnv = process.env, now: Date = new Date()): Promise<AdminStatus> {
-  const [beatList, blob, ghl, pending, killswitch] = await Promise.all([
+  const [beatList, blob, ghl, parked, quality, killswitch] = await Promise.all([
     Promise.all(BEAT_NAMES.map((n) => readHeartbeat(n))),
     checkBlob(env),
     checkGhl(env),
-    pendingNoticeSummary(),
+    countParkedReplies(),
+    loadQualitySummary(now).catch((err: unknown) => {
+      logEvent({ event: "reply_quality_read_failed", error: errorMessage(err) });
+      return null;
+    }),
     env.KILLSWITCH_URL ? isServiceActive(env).then((active) => ({ active })) : Promise.resolve(null),
   ]);
   const beats = Object.fromEntries(BEAT_NAMES.map((n, idx) => [n, beatList[idx] ?? null]));
-  return buildStatus({ now, env, beats, blob, ghl, killswitch, pending });
+  return buildStatus({ now, env, beats, blob, ghl, killswitch, parked, quality });
 }
 
 async function checkBlob(env: NodeJS.ProcessEnv): Promise<{ ok: boolean; detail: string }> {
-  if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "No record storage is connected, so signed bookings and counts can't be kept. Ask your developer to connect it." };
+  if (!env.BLOB_READ_WRITE_TOKEN || !statusStoreReady()) return { ok: false, detail: "Nowhere is set up to save the bot's records, so status and dashboard counts can't be kept. Ask your developer to connect it." };
   try {
     await list({ prefix: `${blobFolder("status")}/`, limit: 1 });
-    return { ok: true, detail: "Record storage is answering." };
+    return { ok: true, detail: "The bot's saved records (status, dashboard counts) can be read." };
   } catch (err: unknown) {
-    return { ok: false, detail: String(errorMessage(err) ?? err).slice(0, 200) };
+    logEvent({ event: "admin_blob_check_failed", error: errorMessage(err) });
+    return { ok: false, detail: "The bot's saved records can't be read right now, so this page and the dashboard may be out of date. Ask your developer to check the storage connection." };
   }
 }
 
@@ -267,11 +315,13 @@ async function checkGhl(env: NodeJS.ProcessEnv): Promise<{ status: Status; detai
       headers: { Authorization: `Bearer ${env.GHL_API_TOKEN}`, Version: "2021-07-28" },
       signal: AbortSignal.timeout(5000),
     });
-    if (res.ok) return { status: "OK", detail: "GHL answered a location lookup with the bot's token." };
-    if (res.status === 401) return { status: "Down", detail: "GHL rejected the API token (401)." };
-    if (res.status === 403) return { status: "Warning", detail: "GHL is reachable, but this token isn't allowed to read the location (403); texting may still work." };
-    return { status: "Down", detail: `GHL answered ${res.status}.` };
+    if (res.ok) return { status: "OK", detail: "GoHighLevel answered and accepted the bot's sign-in." };
+    logEvent({ event: "admin_ghl_check_failed", status: res.status });
+    if (res.status === 401) return { status: "Down", detail: "GoHighLevel turned down the bot's sign-in, so it can't text or read contacts. Ask your developer to renew the bot's GoHighLevel key." };
+    if (res.status === 403) return { status: "Warning", detail: "GoHighLevel answered, but the bot isn't allowed to read the account details this check uses. Texting may still work; ask your developer to check the bot's GoHighLevel permissions." };
+    return { status: "Down", detail: "GoHighLevel answered with an error. If this lasts more than an hour, ask your developer to look." };
   } catch (err: unknown) {
-    return { status: "Down", detail: `GHL didn't answer: ${String(errorMessage(err) ?? err).slice(0, 150)}` };
+    logEvent({ event: "admin_ghl_check_failed", error: errorMessage(err) });
+    return { status: "Down", detail: "GoHighLevel didn't answer. If this lasts more than an hour, ask your developer to look." };
   }
 }

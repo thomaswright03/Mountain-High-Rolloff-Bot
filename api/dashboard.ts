@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
 import { dashboardPassword, isSignedIn, passwordMatches, sessionCookie, signedOutCookie } from "../lib/dashboardAuth.js";
-import { escapeHtml } from "../lib/contract.js";
+import { escapeHtml } from "../lib/html.js";
 import { findCompany } from "../lib/companies.js";
 import { logEvent } from "../lib/logging.js";
 import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";
@@ -167,16 +167,13 @@ function dashboardPage(nonce: string): string {
   th:first-child, td:first-child { text-align: left; white-space: nowrap; }
   th { font-weight: 600; color: var(--ink-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: bottom; }
   tbody tr { transition: background-color 0.15s ease; }
-  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .card, .totals > div, .notices li { animation: rise 0.24s ease-out both; }
   .totals > div:nth-child(2) { animation-delay: 0.04s; } .totals > div:nth-child(3) { animation-delay: 0.08s; } .totals > div:nth-child(4) { animation-delay: 0.12s; }
   button, input, select { transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
   button:active { transform: scale(0.98); }
   input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .bar { transform-origin: left center; animation: grow 0.3s ease-out both; }
-  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .primary:disabled { opacity: 0.6; cursor: progress; }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   tbody tr:hover { background: var(--accent-soft); }
   tbody tr:last-child td { border-bottom: none; }
   td.zero { color: var(--ink-dim); }

@@ -1,5 +1,6 @@
 import { startFlagServer } from "../lib/testHelpers/flagServer.js";
 import { memoryLockBackend, setLockBackendForTests } from "../lib/replyLock.js";
+import { memoryParkedBackend, setParkedBackendForTests } from "../lib/parkedReplies.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -136,7 +137,7 @@ test("a roll-off lead's first reply counts as responded on the dashboard, once",
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"], ["outbound", "great"], ["inbound", "a 20 yard"]]);
   await send("sam", "conv_sam", "a 20 yard");
   assert.equal(funnel.files.get("funnel/responded/sam.json"), first, "a second text doesn't move the day");
-  assert.equal(funnel.files.size, 1);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 1);
 });
 
 test("a reply in test mode, or from someone who isn't a roll-off lead, isn't counted", async () => {
@@ -149,7 +150,7 @@ test("a reply in test mode, or from someone who isn't a roll-off lead, isn't cou
   } finally {
     process.env.DRY_RUN = "false";
   }
-  assert.equal(funnel.files.size, 0);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0);
 });
 
 test("a contact tagged for both flows is left to the residential bot, with no side effects", async () => {
@@ -298,6 +299,8 @@ test("test mode: a hand-off to the office writes no tag, note or star", async ()
 });
 
 test("kill switch: a flag saying paused, an erroring flag, or an unreachable flag all pause replies", async () => {
+  const parked = memoryParkedBackend();
+  setParkedBackendForTests(parked);
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "hi"]]);
   flag.set({ active: false });
   assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
@@ -313,6 +316,10 @@ test("kill switch: a flag saying paused, an erroring flag, or an unreachable fla
     process.env.KILLSWITCH_URL = real;
   }
   assert.equal(ghl.sentMessages.length, 0);
+  assert.equal(ghl.taggedContacts.length + ghl.notes.length, 0, "nothing is written to GHL while paused");
+  // The text is kept for when the bot runs again (lib/parkedReplies.ts).
+  assert.equal(JSON.parse(parked.files.get("sam")!).body, "hi");
+  setParkedBackendForTests(null);
   flag.set({ active: true });
   assert.equal((await send("sam", "conv_sam", "hi")).body.ok, true);
 });
@@ -345,7 +352,7 @@ test("while gathering, the prompt asks for the next thing the contract needs", a
   const state = await send("sam", "conv_sam", text);
   assert.equal(state.body.action, "sent");
   assert.match(draftRequest()!.system, /Ask for the next thing the contract needs: whether it's for a business or personal use/);
-  assert.equal(funnel.files.size, 1, "only 'responded'");
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 1, "only 'responded'");
 });
 
 test("once every answer is in, the code-owned summary goes out after the model's lead-in", async () => {
@@ -534,4 +541,62 @@ test("if signing can't be recorded at all, the lead is not marked signed and not
   assert.equal(state.statusCode, 500);
   assert.ok(!tagsOf("sam").includes("ai-rolloff-confirmed"));
   assert.equal(ghl.sentMessages.length, 0);
+});
+
+test("a different delivery address after the summary goes to the office, quoted, and is never confirmed", async () => {
+  const text = "actually it's going to my rental at 412 Oak St";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", text]]);
+  claude.bookingState = { ...FULL, delivery_address: "412 Oak St" };
+  claude.draft = "got it, the office will give you a quick call from a different number to book it at that address";
+  claude.handoff = false;
+  const state = await send("sam", "conv_sam", text);
+  assert.equal(state.body.action, "sent");
+  assert.equal(state.body.isHandoff, true);
+  assert.match(draftRequest()!.system, /different address than\s+the one on their booking/);
+  assert.ok(!draftRequest()!.system.includes("412 Oak"), "the lead's address stays out of the system prompt");
+  assert.match(JSON.stringify(draftRequest()!.messages), /412 Oak St/);
+  assert.ok(tagsOf("sam").includes("ai-needs-human"));
+  const note = ghl.notes.find((n) => n.contactId === "sam" && n.body.includes("different address"));
+  assert.ok(note, "the office is told");
+  assert.match(note!.body, /New address they gave: "412 Oak St"/);
+  assert.ok(!ghl.sentMessages.some((m) => m.message.includes("here's your roll-off booking")), "no summary for an address we can't book");
+});
+
+test("the address on file said a different way isn't treated as a new address", async () => {
+  const text = "yes call me first, it's at 12 elm street";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.bookingState = { ...FULL, delivery_address: "12 elm street" };
+  claude.draft = "sweet, here's everything";
+  await send("sam", "conv_sam", text);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [`sweet, here's everything\n\n${SUMMARY}`]);
+  assert.ok(!tagsOf("sam").includes("ai-needs-human"));
+});
+
+for (const [name, draft, problem] of [
+  ["a wrong price", "the 20 yard is $350 per dump", /unapproved amount \$350/],
+  ["a promised day", "sweet, we'll drop it off friday morning", /promises a delivery date/],
+  ["a booking claim", "you're all booked for the 20 yard", /says it is booked/],
+  ["our own website", "you can finish it at mountainhighdisposal.com", /sends a link/],
+] as const) {
+  test(`a model reply with ${name} is never sent: the office gets the lead`, async () => {
+    const text = "how much is the 20 yard?";
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+    claude.draft = draft;
+    const state = await send("sam", "conv_sam", text);
+    assert.equal(state.body.action, "held_unsafe_draft");
+    assert.equal(ghl.sentMessages.length, 0);
+    assert.ok(tagsOf("sam").includes("ai-needs-human"));
+    const note = ghl.notes.find((n) => n.contactId === "sam" && n.body.includes("held it back"));
+    assert.match(note!.body, problem);
+    assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/held/")));
+  });
+}
+
+test("a clean reply is sent and counted as passing", async () => {
+  const text = "how much is the 20 yard?";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.draft = "the 20 yard is $400 per dump, up to 4 tons";
+  await send("sam", "conv_sam", text);
+  assert.equal(ghl.sentMessages.length, 1);
+  assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/pass/")));
 });

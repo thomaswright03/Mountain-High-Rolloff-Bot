@@ -19,15 +19,15 @@ export interface CompanyConfig {
 }
 
 export interface RollOffConfig {
-  /** The brand's own online roll-off booking page. The bot stopped texting
-   * it on 2026-10-21 (it books by text now); kept on the outbound link
-   * allow-list (lib/outboundSafety.ts) as our own site. */
-  bookingUrl: string;
-  /** The brand's customer team. Every booking a lead signs by text is
-   * emailed here, filled in except payment, for them to call and take the
-   * card (Thomas, 2026-10-22). Null until the address is given: bookings
-   * still get the GHL note and star, just no email. */
+  /** Where every booking a lead signs by text is emailed, filled in except
+   * payment, for the customer team to call and take the card (Thomas,
+   * 2026-10-22). The ROLLOFF_BOOKING_EMAIL setting overrides it (see
+   * bookingEmailFor in lib/companies.ts). Null: bookings still get the GHL
+   * note and star, just no email. */
   bookingEmail: string | null;
+  /** False while bookingEmail is a stand-in rather than the customer
+   * team's own address; /admin shows a Warning until it is. */
+  bookingEmailIsTeam: boolean;
   /** Where roll-offs are delivered, in plain sentences for the model: the
    * city list, states and any excluded city. No signup or developer notes. */
   serviceArea: string;
@@ -39,8 +39,8 @@ export interface RollOffConfig {
    * full of residential specifics (monthly prices, bin sizes, the
    * cancellation-fee incentive) that don't apply to a dumpster rental. */
   voiceGuide: string;
-  /** What goes into a roll-off contract (lib/contract.ts). Kept in step
-   * with `facts`: lib/contract.test.ts checks every price here also
+  /** What goes into the booking summary a lead signs (lib/rollOffBooking.ts).
+   * Kept in step with `facts`: lib/rollOffBooking.test.ts checks every price here also
    * appears there. */
   contract: RollOffContractConfig;
 }
@@ -67,10 +67,6 @@ export interface RollOffContractConfig {
   specificDayFee: number;
   /** Dollars, for filling it past the top (MTS contract agreement). */
   overfillFee: number;
-  /** The brand's own standard roll-off rental terms, word for word. Null
-   * until the brand provides them: a contract without them is marked as a
-   * test in its own text, and lib/contract.ts says so on the page. */
-  standardTerms: string | null;
 }
 
 export interface InboundMessage {

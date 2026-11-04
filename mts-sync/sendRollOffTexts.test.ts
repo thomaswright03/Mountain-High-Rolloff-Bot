@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
 import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers/mockClaudeServer.js";
 import { AI_ROLLOFF_COLD_OPEN_NOTE_MARKER } from "../lib/prompt.js";
+import { AI_ROLLOFF_LEAD_NOTE_MARKER } from "../lib/rollOffIntake.js";
 import type { MtsContractRow } from "../lib/rollOff.js";
 import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
 
@@ -58,6 +59,8 @@ before(async () => {
       exhausted: base("exhausted", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent", "ai-rolloff-followup-1-sent", "ai-rolloff-followup-2-sent"] }),
       lead_replied: base("lead_replied", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] }),
       never_delivered: base("never_delivered", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] }),
+      // Dripped 40 days ago; the importer just picked up a new booking attempt.
+      returning: base("returning", { dateAdded: ago(60 * 24 * 60) }),
     },
     conversationsByContact: {
       rep_texted: "conv_rep",
@@ -67,6 +70,7 @@ before(async () => {
       fu2_due: "conv_fu2_due",
       lead_replied: "conv_lead_replied",
       never_delivered: "conv_never_delivered",
+      returning: "conv_returning",
     },
     // Newest first, the way GHL returns them.
     conversationHistories: {
@@ -83,6 +87,7 @@ before(async () => {
         { direction: "outbound", body: "cold open", dateAdded: ago(60 * 27) },
       ],
       conv_never_delivered: [{ direction: "outbound", body: "cold open", dateAdded: ago(60 * 25), status: "failed" }],
+      conv_returning: [{ direction: "outbound", body: "last follow-up", dateAdded: ago(60 * 24 * 33) }],
     },
   });
   claude = await startMockClaudeServer();
@@ -137,7 +142,7 @@ test("a lead who left the form 30+ minutes ago gets the fixed cold open, tagged 
 test("the first text that goes out counts the lead as reached on the dashboard, once", async () => {
   assert.equal(await processEntry({ contactId: "fresh" }, live()), "sent");
   assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "sent");
-  assert.deepEqual([...funnel.files.keys()].sort(), ["funnel/reached/fresh.json", "funnel/reached/fu1_due.json"]);
+  assert.deepEqual([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).sort(), ["funnel/reached/fresh.json", "funnel/reached/fu1_due.json"]);
   // A later text to someone already counted changes nothing.
   const first = funnel.files.get("funnel/reached/fu1_due.json")!;
   assert.equal(await processEntry({ contactId: "fu2_due" }, live()), "sent");
@@ -147,7 +152,7 @@ test("the first text that goes out counts the lead as reached on the dashboard, 
 test("nothing is counted as reached when nothing went out", async () => {
   assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW, consentConfirmed: false }), "retry");
   assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts: async () => [{ custNumber: "42", name: "Jane Doe", medium: "Website", status: "Active", saleDate: "10/10/2026" }] })), "skipped");
-  assert.equal(funnel.files.size, 0);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0);
 });
 
 test("a name that isn't a name never reaches the text", async () => {
@@ -179,7 +184,7 @@ test("DRY_RUN never sends and never writes to GHL", async () => {
   assert.equal(ghl.sentMessages.length, 0);
   assert.equal(ghl.taggedContacts.length, 0);
   assert.equal(ghl.notes.length, 0);
-  assert.equal(funnel.files.size, 0, "and counts nothing on the dashboard");
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0, "and counts nothing on the dashboard");
 });
 
 test("DND, no phone, Loveland, out-of-state, and already flagged/opted-out/booked/finished leads are never texted", async () => {
@@ -238,6 +243,14 @@ test("the cold-open note stands in for a lost sent tag, so the cold open is neve
   assert.ok(tagsOf("noted_not_tagged").includes("ai-rolloff-followup-1-sent"), "and it's follow-up 1 that went out");
 });
 
+test("a returning lead's new booking attempt gets a fresh cold open, whatever the old notes say", async () => {
+  ghl.notes.push({ contactId: "returning", body: `${AI_ROLLOFF_COLD_OPEN_NOTE_MARKER} {}`, dateAdded: ago(60 * 24 * 40) });
+  ghl.notes.push({ contactId: "returning", body: `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead 777, dated 2026-10-10).`, dateAdded: ago(10) });
+  assert.equal(await processEntry({ contactId: "returning" }, live()), "sent");
+  assert.ok(tagsOf("returning").includes("ai-rolloff-outreach-sent"));
+  assert.match(ghl.sentMessages[0]!.message, /started booking a roll-off dumpster/);
+});
+
 test("follow-ups wait their turn: not before 24h, and never while the lead's text is unanswered", async () => {
   assert.equal(await processEntry({ contactId: "fu1_not_due" }, live()), "skipped");
   assert.equal(await processEntry({ contactId: "lead_replied" }, live()), "skipped");
@@ -288,5 +301,50 @@ test("a contact stranded with the processing tag is released and noted; one clai
     assert.deepEqual(result, { released: 1, stillStuck: 1 });
     assert.ok(ghl.removedTags.some((t) => t.contactId === "stuck_old" && t.tag === "ai-rolloff-processing"));
     assert.ok(!ghl.removedTags.some((t) => t.contactId === "stuck_new"));
+  }
+});
+
+test("a follow-up that fails a safety check is never sent: the office gets the lead and it counts as held", async () => {
+  claude.draft = "the 20 yard is $350 and we can drop it friday, finish at mountainhighdisposal.com";
+  assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "skipped");
+  assert.equal(ghl.sentMessages.length, 0);
+  assert.ok(tagsOf("fu1_due").includes("ai-needs-human"));
+  assert.ok(ghl.notes.some((n) => n.contactId === "fu1_due" && /held it back.*unapproved amount \$350/.test(n.body)));
+  assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/held/")));
+});
+
+test("a lead text that has waited past 15 minutes is reported as unanswered; ours waiting on them is not", async () => {
+  const unanswered: string[] = [];
+  await processEntry({ contactId: "lead_replied" }, live({ unanswered }));
+  await processEntry({ contactId: "fu1_not_due" }, live({ unanswered }));
+  assert.deepEqual(unanswered, ["lead_replied"]);
+  process.env.DRY_RUN = "true";
+  const dry: string[] = [];
+  await processEntry({ contactId: "lead_replied" }, live({ unanswered: dry }));
+  assert.deepEqual(dry, [], "test mode never answers, so it isn't counted");
+});
+
+test("texts parked during a pause: a recent one goes through the reply flow, an old one to the office, and both are cleared", async () => {
+  const { memoryParkedBackend, setParkedBackendForTests } = await import("../lib/parkedReplies.js");
+  const { memoryLockBackend, setLockBackendForTests } = await import("../lib/replyLock.js");
+  const { drainParkedReplies } = await import("./sendRollOffTexts.js");
+  const parked = memoryParkedBackend();
+  setParkedBackendForTests(parked);
+  setLockBackendForTests(memoryLockBackend());
+  try {
+    parked.files.set("lead_replied", JSON.stringify({ contactId: "lead_replied", conversationId: "conv_lead_replied", locationId: "test-location", body: "what sizes do you have?", receivedAt: ago(60) }));
+    parked.files.set("fu1_due", JSON.stringify({ contactId: "fu1_due", locationId: "test-location", body: "yes still need one", receivedAt: ago(60 * 20) }));
+    const result = await drainParkedReplies(NOW);
+    assert.deepEqual(result, { answered: 1, handedOff: 1 });
+    assert.equal(parked.files.size, 0);
+    assert.ok(tagsOf("fu1_due").includes("ai-needs-human"));
+    assert.ok(ghl.notes.some((n) => n.contactId === "fu1_due" && /texted while the bot was paused.*yes still need one/.test(n.body)));
+    process.env.DRY_RUN = "true";
+    parked.files.set("fu1_due", "{}");
+    assert.deepEqual(await drainParkedReplies(NOW), { answered: 0, handedOff: 0 });
+    assert.equal(parked.files.size, 1, "test mode leaves parked texts for when the bot is live");
+  } finally {
+    setParkedBackendForTests(null);
+    setLockBackendForTests(null);
   }
 });

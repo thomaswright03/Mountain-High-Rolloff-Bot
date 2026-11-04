@@ -138,7 +138,7 @@ test("roll-off prompts book in the thread with the approved facts: no link, neve
 test("the reply prompt names the next thing the contract needs, and hands the summary to code", () => {
   const gathering = buildRollOffReplyPrompt(company, rollOff, false, {
     kind: "gathering",
-    state: { wantsToBook: true, yards: 20, customerType: null, placement: null, callBeforeDelivery: null },
+    state: { wantsToBook: true, yards: 20, customerType: null, placement: null, callBeforeDelivery: null, deliveryAddress: null },
     summarySent: false,
   });
   assert.match(gathering, /Ask for the next thing the contract needs: whether it's for a business or personal use/);

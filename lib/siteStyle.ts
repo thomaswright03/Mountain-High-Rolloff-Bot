@@ -1,4 +1,4 @@
-import { escapeHtml } from "./contract.js";
+import { escapeHtml } from "./html.js";
 
 /** Shared by /dashboard, /admin and the 404 page so they look like one product. */
 export const SITE_STYLES = `
@@ -74,6 +74,13 @@ export const SITE_STYLES = `
     font-size: 13px; text-decoration: underline; text-underline-offset: 3px;
   }
   .link-button:hover { color: var(--ink); }
+  .centered { text-align: center; }
+
+  /* One motion language for every page; nothing moves for anyone who
+     asked their device for reduced motion. */
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 `;
 
 export function siteMasthead(brand: string, sub: string, nav = ""): string {

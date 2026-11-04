@@ -1,5 +1,3 @@
-import { allCompanies } from "./companies.js";
-
 // Security audit, 2026-10-02: whatever a lead typed as their first name on
 // the public signup form was pasted verbatim into the cold-open text (and
 // into the follow-up system prompt), and the cold open goes to whatever
@@ -11,9 +9,9 @@ import { allCompanies } from "./companies.js";
 //      prompt if it actually looks like a name — anything else falls back to
 //      the existing name-free "Hey there" path.
 //   2. assertSafeOutboundSms: every outbound SMS (template or model-drafted)
-//      is refused if it contains a link to any host that isn't one of our
-//      own configured brand/review links — so even a name or reply that
-//      slips past (1) can't turn the business's number into a link sender.
+//      is refused if it contains any link or web address at all, our own
+//      site included — so even a name or reply that slips past (1) can't
+//      turn the business's number into a link sender.
 
 const NAME_WORD = String.raw`\p{L}[\p{L}'’-]*`;
 const NAME_RE = new RegExp(`^${NAME_WORD}(?: ${NAME_WORD})?$`, "u");
@@ -39,29 +37,6 @@ function hostOf(url: string): string | null {
   }
 }
 
-/** Every host our own config legitimately links to (the roll-off booking
- * page, and this deployment's contract signing page at PUBLIC_BASE_URL) —
- * the only hosts an outbound SMS may ever mention. Derived from
- * lib/companies.ts so adding a brand or changing a link needs no second
- * edit here. */
-function configuredLinkHosts(): string[] {
-  const hosts = new Set<string>();
-  const contractPageHost = process.env.PUBLIC_BASE_URL ? hostOf(process.env.PUBLIC_BASE_URL) : null;
-  if (contractPageHost) hosts.add(contractPageHost.replace(/^www\./, ""));
-  for (const company of allCompanies()) {
-    for (const url of [company.rollOff.bookingUrl]) {
-      const host = url ? hostOf(url) : null;
-      if (host) hosts.add(host.replace(/^www\./, ""));
-    }
-  }
-  return [...hosts];
-}
-
-function isAllowedHost(host: string, allowedHosts: string[]): boolean {
-  const normalized = host.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
-  return allowedHosts.some((allowed) => normalized === allowed || normalized.endsWith(`.${allowed}`));
-}
-
 // Email addresses aren't links (and the escalation contact is an email
 // address), so they're removed before looking for hosts.
 const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
@@ -72,9 +47,15 @@ const SCHEME_URL_RE = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"']+/gi;
 const BARE_HOST_RE = /(?<![\w@.-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62})(?![\w-])/gi;
 const IPV4_RE = /(?<![\w.])\d{1,3}(?:\.\d{1,3}){3}(?![\w.])/g;
 
-/** Links in `text` that point anywhere other than our own configured hosts.
- * Empty array means the text is safe to send. */
-export function findDisallowedLinks(text: string, allowedHosts: string[] = configuredLinkHosts()): string[] {
+function isAllowedHost(host: string, allowedHosts: string[]): boolean {
+  const normalized = host.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+  return allowedHosts.some((allowed) => normalized === allowed || normalized.endsWith(`.${allowed}`));
+}
+
+/** Links in `text`, other than to `allowedHosts`. No roll-off text may carry
+ * a link at all, our own website included (Thomas, 2026-10-21), so by
+ * default nothing is allowed. Empty array means the text is safe to send. */
+export function findDisallowedLinks(text: string, allowedHosts: string[] = []): string[] {
   const found = new Set<string>();
   const withoutEmails = text.normalize("NFKC").replace(EMAIL_RE, " ");
 
@@ -96,7 +77,7 @@ export function findDisallowedLinks(text: string, allowedHosts: string[] = confi
 
 export class UnsafeOutboundSmsError extends Error {
   constructor(public readonly links: string[]) {
-    super(`outbound SMS blocked: it contains a link we don't own (${links.join(", ")})`);
+    super(`outbound SMS blocked: it contains a link (${links.join(", ")})`);
     this.name = "UnsafeOutboundSmsError";
   }
 }

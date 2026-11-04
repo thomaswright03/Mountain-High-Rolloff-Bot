@@ -10,6 +10,7 @@ import {
   buildSignedReply,
   cleanPlacement,
   contactOnFile,
+  isDifferentAddress,
   findBookingPayload,
   isSignature,
   latestSummary,
@@ -28,9 +29,9 @@ const answers: BookingAnswers = { yards: 20, customerType: "Personal", placement
 
 test("parseBookingState keeps only valid answers", () => {
   const state = parseBookingState({ wants_to_book: true, yards: 20, customer_type: "Business", placement: "  street \n out front ", call_before_delivery: false }, company.rollOff);
-  assert.deepEqual(state, { wantsToBook: true, yards: 20, customerType: "Business", placement: "street out front", callBeforeDelivery: false });
+  assert.deepEqual(state, { wantsToBook: true, yards: 20, customerType: "Business", placement: "street out front", callBeforeDelivery: false, deliveryAddress: null });
   const junk = parseBookingState({ wants_to_book: "yes", yards: 40, customer_type: "church", placement: 7, call_before_delivery: "yes" }, company.rollOff);
-  assert.deepEqual(junk, { wantsToBook: false, yards: null, customerType: null, placement: null, callBeforeDelivery: null });
+  assert.deepEqual(junk, { wantsToBook: false, yards: null, customerType: null, placement: null, callBeforeDelivery: null, deliveryAddress: null });
   assert.equal(parseBookingState(null, company.rollOff).wantsToBook, false);
   assert.deepEqual(missingAnswers(state), []);
   assert.deepEqual(missingAnswers({ ...state, placement: null, yards: null }), ["yards", "placement"]);
@@ -163,4 +164,22 @@ test("the team email has every contract field but payment, escaped, plus the sig
     assert.ok(html.includes(part), part);
   }
   assert.ok(!html.includes("<b>back</b>"), "lead text is escaped");
+});
+
+test("a delivery address only matches the one on file by house number and street", () => {
+  const onFile = { address1: "12 Elm St" };
+  assert.equal(isDifferentAddress("12 elm street", onFile), false);
+  assert.equal(isDifferentAddress("12 Elm St, Greeley CO", onFile), false);
+  assert.equal(isDifferentAddress("412 Oak St", onFile), true);
+  assert.equal(isDifferentAddress("12 Oak St", onFile), true);
+  assert.equal(isDifferentAddress("my rental on Oak", onFile), true);
+  assert.equal(isDifferentAddress("12 Elm St", null), true);
+});
+
+test("every size and price in the summary matches what the bot is allowed to quote", () => {
+  const rollOff = findCompany("Mountain High Disposal")!.rollOff;
+  for (const s of rollOff.contract.sizes) {
+    assert.ok(rollOff.facts.includes(`${s.yards} yard: $${s.pricePerDump}, up to ${s.tonLimit} ton`), `${s.yards} yard`);
+    assert.ok(rollOff.facts.includes(`${s.yards} yard: ${s.dimensions}`), `${s.yards} yard dimensions`);
+  }
 });

@@ -49,28 +49,20 @@ test("recording never throws, even with no store connected or a failing one", as
   assert.equal(store.files.size, 0);
 });
 
-test("the dashboard's activity comes from the funnel files and this environment's contracts folder", async () => {
+test("the dashboard's activity comes from the funnel files", async () => {
   const at = (iso: string) => new Date(iso);
   const put = (pathname: string, iso: string) => store.files.set(pathname, { pathname, uploadedAt: at(iso), body: "{}" });
   put("funnel/reached/a.json", "2026-10-08T16:00:00Z");
   put("funnel/reached/b.json", "2026-10-09T16:00:00Z");
   put("funnel/responded/a.json", "2026-10-08T17:00:00Z");
-  put("test-contracts/c1/contract.json", "2026-10-08T18:00:00Z");
-  put("funnel/contract-sent/c1.json", "2026-10-08T18:01:00Z"); // texted; c2 below was made but never texted
-  put("test-contracts/c1/signed.json", "2026-10-09T18:00:00Z");
-  put("test-contracts/c1/signed.html", "2026-10-09T18:00:00Z");
-  put("test-contracts/c2/contract.json", "2026-10-09T19:00:00Z");
-  put("contracts/c3/contract.json", "2026-10-09T19:00:00Z"); // production's, not this environment's
-  put("contracts/c3/signed.json", "2026-10-09T19:00:00Z");
+  put("funnel/contract-sent/c1.json", "2026-10-08T18:01:00Z"); // a link texted before 2026-10-21
+  put("funnel/summary-sent/a.json", "2026-10-09T17:00:00Z");
+  put("funnel/signed/a.json", "2026-10-09T18:00:00Z");
+  put("quality/pass/x-a.json", "2026-10-09T18:00:00Z");
 
   const activity = await loadFunnelActivity();
   assert.deepEqual(activity.reached.map((d) => d.toISOString()).sort(), ["2026-10-08T16:00:00.000Z", "2026-10-09T16:00:00.000Z"]);
   assert.deepEqual(activity.responded.map((d) => d.toISOString()), ["2026-10-08T17:00:00.000Z"]);
-  assert.equal(activity.contractsSent.length, 1);
+  assert.equal(activity.contractsSent.length, 2);
   assert.deepEqual(activity.contractsSigned.map((d) => d.toISOString()), ["2026-10-09T18:00:00.000Z"]);
-
-  process.env.VERCEL_ENV = "production";
-  const prod = await loadFunnelActivity();
-  assert.equal(prod.contractsSent.length, 1);
-  assert.equal(prod.contractsSigned.length, 1);
 });

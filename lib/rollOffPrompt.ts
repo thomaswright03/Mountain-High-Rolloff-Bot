@@ -1,7 +1,7 @@
 import type { CompanyConfig, RollOffConfig } from "./types.js";
 import { safeFirstName } from "./outboundSafety.js";
 import { TRANSCRIPT_FORMAT_NOTE } from "./prompt.js";
-import type { BookingState } from "./rollOffBooking.js";
+import { EMPTY_BOOKING, type BookingState } from "./rollOffBooking.js";
 
 // Prompts and the fixed cold open for the roll-off dumpster bot — see
 // lib/rollOff.ts for the flow. Same rules as the Kaizen residential
@@ -44,6 +44,7 @@ export type ReplyMode =
   | { kind: "gathering"; state: BookingState; summarySent: boolean; nameMismatch?: boolean }
   | { kind: "summary_next" }
   | { kind: "office_finishes" }
+  | { kind: "new_address" }
   | { kind: "signed_already" };
 
 const LABELS: Record<string, string> = {
@@ -102,6 +103,15 @@ need on file to write up their contract are incomplete, so it can't be
 finished by text. Tell them the office will give them a quick call to
 finish it up and take payment. Don't ask them anything else.`.trim();
   }
+  if (mode.kind === "new_address") {
+    return `
+RIGHT NOW: they want the dumpster delivered to a different address than
+the one on their booking (new_delivery_address in the lead details). A
+booking by text can only be written for the address on file, so the office
+will set it up at the new address. Tell them the office will give them a
+quick call to book it at that address. Don't say the address is changed or
+updated, don't confirm anything, and don't ask them anything else.`.trim();
+  }
   if (mode.kind === "signed_already") {
     return `
 RIGHT NOW: they already signed their booking by text. The office will
@@ -125,9 +135,9 @@ be in someone else's name.`);
   } else if (mode.summarySent) {
     lines.push(`
 We already sent them the booking summary and are waiting for them to sign
-it by replying with their full name. Answer what they asked. If they want
-to change something, just confirm the change in a few words: a fresh
-summary goes out once it's settled.`);
+it by replying with their full name. Answer what they asked. If they ask
+to change something about the booking, never say it's changed or
+confirmed: say the office will sort that out with them on a quick call.`);
   } else if (mode.state.wantsToBook && needed.length > 0) {
     lines.push(`
 They want a dumpster. Ask for the next thing the contract needs: ${needed[0]}.
@@ -153,7 +163,7 @@ brief: say the office can help with whatever they're asking, then stop.`.trim();
 /** System prompt for replying to a roll-off lead's text — see
  * lib/rollOffReply.ts. Their details on file and the transcript go in the
  * user turn (draftReply's leadDetails/conversation), never here. */
-export function buildRollOffReplyPrompt(company: CompanyConfig, rollOff: RollOffConfig, isFirstReply: boolean, mode: ReplyMode = { kind: "gathering", state: { wantsToBook: false, yards: null, customerType: null, placement: null, callBeforeDelivery: null }, summarySent: false }): string {
+export function buildRollOffReplyPrompt(company: CompanyConfig, rollOff: RollOffConfig, isFirstReply: boolean, mode: ReplyMode = { kind: "gathering", state: { ...EMPTY_BOOKING }, summarySent: false }): string {
   return `
 You are ${company.repName}, texting on behalf of ${company.displayName}. This
 lead started booking a roll-off dumpster on our website but didn't finish.

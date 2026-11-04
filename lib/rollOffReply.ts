@@ -1,9 +1,9 @@
 import type { CompanyConfig, InboundMessage } from "./types.js";
-import { findCompany } from "./companies.js";
+import { bookingEmailFor, findCompany } from "./companies.js";
 import { evaluateInbound } from "./safety.js";
 import { buildHandoffCheckPrompt, formatHistory } from "./prompt.js";
 import { buildRollOffReplyPrompt, type ReplyMode } from "./rollOffPrompt.js";
-import { isOutsideServiceStates, rejectTemplateMarkers } from "./rollOff.js";
+import { NEEDS_HUMAN_TAG, OPTED_OUT_TAG, isOutsideServiceStates, rejectTemplateMarkers } from "./rollOff.js";
 import {
   AI_ROLLOFF_BOOKING_NOTE_MARKER,
   EMPTY_BOOKING,
@@ -15,6 +15,7 @@ import {
   buildOfficeNote,
   buildSignedReply,
   contactOnFile,
+  isDifferentAddress,
   isSignature,
   latestSummary,
   looksLikeAName,
@@ -33,8 +34,9 @@ import { recordHeartbeat } from "./runStatus.js";
 import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
 import { errorMessage } from "./errors.js";
+import { gradeDraft } from "./draftChecks.js";
+import { recordDraftCheck } from "./replyQuality.js";
 
-const NEEDS_HUMAN_TAG = "ai-needs-human";
 
 export interface RollOffReplyResult {
   action: string;
@@ -118,7 +120,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   logEvent({ event: "rolloff_safety_verdict", contactId, company: company.displayName, verdict });
 
   if (verdict.action === "opt_out") {
-    await writeToContact(contactId, "ai-opted-out", `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
+    await writeToContact(contactId, OPTED_OUT_TAG, `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
     if (conversationId && !isDryRun()) {
       try {
         await markConversationRead(conversationId);
@@ -199,11 +201,17 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
         rollOff
       );
   const complete = state.wantsToBook && missingAnswers(state).length === 0;
+  // A booking by text is only ever written for the address on file, so a
+  // different delivery address goes to the office, quoted in the note, and
+  // the lead is never told the change is made (grader, 2026-11-04).
+  const newAddress = !alreadySigned && state.deliveryAddress && isDifferentAddress(state.deliveryAddress, onFile) ? state.deliveryAddress : null;
 
   let summary: string | null = null;
   let mode: ReplyMode;
   if (alreadySigned) {
     mode = { kind: "signed_already" };
+  } else if (newAddress) {
+    mode = { kind: "new_address" };
   } else if (complete && onFile) {
     const fresh = buildBookingSummary(company, onFile, state);
     // The same summary is already waiting on their signature: answer
@@ -225,15 +233,33 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     first_name: safeFirstName(contact.firstName) ?? null,
     service_address: hasFullAddress ? `${contact.address1}, ${contact.city}, ${contact.state} ${contact.postalCode}` : null,
     ...(mode.kind === "gathering" && mode.nameMismatch ? { name_on_booking: `${onFile!.firstName} ${onFile!.lastName}` } : {}),
+    ...(newAddress ? { new_delivery_address: newAddress } : {}),
   });
 
   const rawDraft = rejectTemplateMarkers(await draftReply(buildRollOffReplyPrompt(company, rollOff, isFirstReply, mode), formatHistory(history), leadDetails));
+  // The model's words go through the same code checks as the eval before
+  // they can reach a customer: a wrong price, a promised day, "you're
+  // booked", a card request or a link means nothing is sent and the office
+  // takes the lead (grader, 2026-11-04). The code-owned summary isn't
+  // checked: its prices and wording come from config.
+  const problems = gradeDraft(rawDraft);
+  await recordDraftCheck("reply", contactId, problems);
+  if (problems.length > 0) {
+    logEvent({ event: "rolloff_draft_held", contactId, draft: rawDraft, problems, dryRun });
+    if (dryRun) return { action: "dry_run_held", draft: rawDraft };
+    await handToOffice(
+      contactId,
+      conversationId,
+      `AI wrote a reply to this roll-off lead but held it back because it failed a safety check (${problems.join("; ")}), so nothing was sent. Please text or call them. Lead said: "${inbound.body}" The held reply was: "${rawDraft}"`
+    );
+    return { action: "held_unsafe_draft", reason: problems.join("; ") };
+  }
   const draft = summary ? `${rawDraft}\n\n${summary}` : rawDraft;
   // Same classifier as the residential reply: a reply whose whole point is
   // "the office will call you" (or that ends the conversation) means the
   // office owns it from here. A summary is the booking working, never a
   // hand-off.
-  const isHandoff = mode.kind === "office_finishes" ? true : summary ? false : await detectHandoff(buildHandoffCheckPrompt(), draft);
+  const isHandoff = mode.kind === "office_finishes" || mode.kind === "new_address" ? true : summary ? false : await detectHandoff(buildHandoffCheckPrompt(), draft);
 
   logEvent({ event: "rolloff_draft", contactId, draft, isFirstReply, mode: mode.kind, bookingState: state, isHandoff, dryRun: process.env.DRY_RUN });
 
@@ -252,7 +278,9 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     await handToOffice(
       contactId,
       conversationId,
-      mode.kind === "office_finishes"
+      mode.kind === "new_address"
+        ? `AI handed this roll-off lead to the office: they want the dumpster delivered to a different address than the one on file. New address they gave: "${newAddress}". On file: ${hasFullAddress ? `${contact.address1}, ${contact.city}, ${contact.state} ${contact.postalCode}` : "(incomplete)"}. Please check the new address is in our service area (not Loveland), then call them to book it there. Booking so far: ${state.yards ?? "?"} yard, ${state.customerType ?? "?"}, placement "${state.placement ?? "?"}". Lead said: "${inbound.body}"`
+        : mode.kind === "office_finishes"
         ? `AI handed this roll-off lead to the office: they gave every booking answer (${state.yards} yard, ${state.customerType}, placement "${state.placement}", call before delivery: ${state.callBeforeDelivery ? "yes" : "no"}), but their name, phone or address on file is incomplete so a contract can't be made by text. Please call them to finish booking. Lead said: "${inbound.body}"`
         : `AI handed this roll-off lead to the office. Read the thread: if they still want a dumpster, call them to finish booking (size, placement, card). AI's last text: "${draft}" Lead said: "${inbound.body}"`
     );
@@ -312,8 +340,9 @@ async function recordSignature(input: {
   const reply = buildSignedReply(safeFirstName(onFile.firstName), answers.yards!);
   logEvent({ event: "rolloff_signed", contactId, draft: reply, payload, dryRun });
   if (dryRun) {
-    const email = company.rollOff.bookingEmail ? buildBookingEmail(company, payload, ghlContactUrl(input.inbound.locationId, contactId)) : null;
-    logEvent({ event: "rolloff_booking_email_dry_run", contactId, to: company.rollOff.bookingEmail, subject: email?.subject });
+    const { to } = bookingEmailFor(company);
+    const email = to ? buildBookingEmail(company, payload, ghlContactUrl(input.inbound.locationId, contactId)) : null;
+    logEvent({ event: "rolloff_booking_email_dry_run", contactId, to, subject: email?.subject });
     return { action: "dry_run", draft: reply, signed: true };
   }
 
@@ -328,7 +357,7 @@ async function recordSignature(input: {
   try {
     await withRetries(() => writeSigningRecords(contactId, conversationId, payload));
   } catch (err: unknown) {
-    await recordHeartbeat("booking-signed", false, `the last signing could not be fully recorded in GHL: ${errorMessage(err)}`);
+    await recordHeartbeat("booking-signed", false, "the last signing couldn't be fully saved in GoHighLevel, so the lead wasn't marked signed or texted. Check their thread");
     throw err;
   }
   await recordHeartbeat("booking-signed", true, "the last signing was tagged, noted and starred for the office");
@@ -373,7 +402,7 @@ function ghlContactUrl(locationId: string, contactId: string): string {
  * the booking is already tagged, noted and starred, so a failed email only
  * adds a note saying so. */
 async function emailBooking(company: CompanyConfig, payload: RollOffBookingPayload, contactId: string, locationId: string): Promise<void> {
-  const to = company.rollOff.bookingEmail;
+  const { to } = bookingEmailFor(company);
   if (!to) {
     logEvent({ event: "rolloff_booking_email_not_configured", contactId });
     return;
@@ -389,7 +418,7 @@ async function emailBooking(company: CompanyConfig, payload: RollOffBookingPaylo
     await recordHeartbeat("booking-email", true, `the last booking was emailed to ${to}`);
   } catch (err: unknown) {
     logEvent({ event: "rolloff_booking_email_failed", contactId, error: errorMessage(err) });
-    await recordHeartbeat("booking-email", false, `the last booking email to ${to} failed: ${errorMessage(err)}`);
+    await recordHeartbeat("booking-email", false, `the last booking email to ${to} didn't go out. The booking note and star are in GoHighLevel`);
     try {
       await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${errorMessage(err)}). Everything the office needs is in the note above.`);
     } catch {

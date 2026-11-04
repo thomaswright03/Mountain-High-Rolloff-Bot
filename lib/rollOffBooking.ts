@@ -1,6 +1,7 @@
 import type { CompanyConfig, ConversationTurn, RollOffConfig, RollOffSize } from "./types.js";
 import { TRANSCRIPT_FORMAT_NOTE } from "./prompt.js";
 import { stateCode } from "./rollOff.js";
+import { escapeHtml } from "./html.js";
 
 // Booking a roll-off in the text thread (Thomas, 2026-10-21: "we dont want
 // it to send a link. we want it to book the client right there"). Same
@@ -45,9 +46,13 @@ export interface BookingAnswers {
 export interface BookingState extends BookingAnswers {
   /** They want to go ahead with a dumpster (not just asking questions). */
   wantsToBook: boolean;
+  /** An address the lead said the dumpster should go to, in their words.
+   * The booking can only be written for the address on file, so a
+   * different one goes to the office (isDifferentAddress). */
+  deliveryAddress: string | null;
 }
 
-export const EMPTY_BOOKING: BookingState = { wantsToBook: false, yards: null, customerType: null, placement: null, callBeforeDelivery: null };
+export const EMPTY_BOOKING: BookingState = { wantsToBook: false, yards: null, customerType: null, placement: null, callBeforeDelivery: null, deliveryAddress: null };
 
 const MAX_PLACEMENT_LENGTH = 160;
 
@@ -71,7 +76,29 @@ export function parseBookingState(raw: Record<string, unknown> | null, rollOff: 
     customerType: type === "business" ? "Business" : type === "personal" ? "Personal" : null,
     placement: cleanPlacement(raw.placement),
     callBeforeDelivery: typeof raw.call_before_delivery === "boolean" ? raw.call_before_delivery : null,
+    deliveryAddress: cleanPlacement(raw.delivery_address),
   };
+}
+
+function addressWords(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+/** True when the address the lead gave isn't the one on file. Compared by
+ * house number and the first word of the street name, so "123 Main St" and
+ * "123 main street, Denver" match, and anything else (another street, no
+ * house number, no address on file) counts as different: the office
+ * checks it rather than the bot booking the wrong place. */
+export function isDifferentAddress(said: string, onFile: Pick<ContactOnFile, "address1"> | null): boolean {
+  if (!onFile) return true;
+  const file = addressWords(onFile.address1);
+  const lead = addressWords(said);
+  const number = file.find((w) => /^\d+[a-z]?$/.test(w));
+  if (!number) return true;
+  const street = file[file.indexOf(number) + 1];
+  const at = lead.indexOf(number);
+  if (at < 0) return true;
+  return Boolean(street) && !lead.slice(at + 1, at + 4).includes(street!);
 }
 
 export function missingAnswers(state: BookingAnswers): Array<keyof BookingAnswers> {
@@ -292,10 +319,6 @@ export function buildOfficeNote(p: RollOffBookingPayload): string {
   ].join("\n");
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
 /** The email the customer team gets for a signed booking (Thomas,
  * 2026-10-22): the MTS New Roll-Off Contract filled in except payment, in
  * the form's own order, then the summary they signed word for word. Plain
@@ -352,7 +375,7 @@ ${company.displayName} ("us") and a lead, so their contract can be filled in.
 ${TRANSCRIPT_FORMAT_NOTE}
 
 Return exactly one JSON object and nothing else:
-{"wants_to_book": boolean, "yards": number or null, "customer_type": "business" or "personal" or null, "placement": string or null, "call_before_delivery": boolean or null}
+{"wants_to_book": boolean, "yards": number or null, "customer_type": "business" or "personal" or null, "placement": string or null, "call_before_delivery": boolean or null, "delivery_address": string or null}
 
 - "wants_to_book": true if the lead wants to go ahead and get a dumpster
   (not just asking questions, and hasn't said no or that they're all set).
@@ -365,6 +388,9 @@ Return exactly one JSON object and nothing else:
   left side"), in their own words, short. null if they haven't said.
 - "call_before_delivery": true/false once the lead has said whether they
   want a call before it's delivered. null if not answered.
+- "delivery_address": if the lead said the dumpster should go to a street
+  address (e.g. "it's for my rental at 412 Oak St"), that address as they
+  wrote it. null if they haven't given one.
 Use only what the lead said. Never guess.
 `.trim();
 }

@@ -49,9 +49,20 @@ login; they're kept apart by GHL tags.
   the conversation is starred. MTS won't save a roll-off contract without a
   card, so the office calls, takes the card and enters it. If anything on
   file is missing, the office finishes the booking instead.
+- **Changes after the summary** (2026-11-04): if a lead asks for a
+  different delivery address or wants to change the booking, the bot never
+  says it's changed. A different address hands the lead to the office
+  (`ai-needs-human` tag, star, a note with the address they gave).
+- **Every model-written text is checked before it's sent**
+  (`lib/draftChecks.ts`: no links, only approved prices, no delivery-date
+  promise, no "booked", no "changed", admits being an AI). A draft that
+  fails is never sent: the lead goes to the office with a note, and /admin
+  "Reply quality" shows the share held back over the last 7 days.
 - **The booking email** (Thomas, 2026-10-22): each signed booking is also
-  emailed through GHL to `rollOff.bookingEmail` (Thomas's own address for
-  now, until the customer team's is set up). It lists every field on the
+  emailed through GHL to the `ROLLOFF_BOOKING_EMAIL` setting (Vercel), or
+  to Thomas's own address (`rollOff.bookingEmail`) until the customer
+  team's address is set; /admin "Booking email to the office" shows a
+  warning while it's the stand-in. It lists every field on the
   MTS form except the card, in form order, plus the signed summary and a
   link to the GHL contact. It goes to the GHL contact with that email (one
   is created as "<company> Customer Team" if none exists; an existing one
@@ -61,41 +72,6 @@ login; they're kept apart by GHL tags.
   CEO's per-dump prices and weight limits, the 7-day rental, what can't go
   in, and the fees from the MTS contract's Agreements. Anything else (the
   daily rate past 7 days) goes to the office.
-
-## Contract signing page
-
-Thomas, 2026-10-10: a page where a lead reads and e-signs their roll-off
-contract, at `/contract/{id}?t={token}` (`api/contract.ts`). Since
-2026-10-21 the bot no longer texts these links (it books by text instead);
-the page and `npm run contract:create` still work for a manual contract:
-**who:** whoever Thomas names at Mountain High, from a machine with the Vercel
-and GHL env vars set; **when:** only if a lead needs a written contract
-instead of booking by text (none is expected). On /admin this is the Basic row
-"Manual contract signing page"; it never drives the overall status. The
-"TEST CONTRACT" banner stays until the standard terms are supplied.
-
-- **The contract** (`lib/contract.ts`) is built by code from the brand's
-  config: size, the CEO's per-dump price and weight limit, the 7-day rental,
-  what can't go in, the service address and requested delivery date. It
-  says that signing doesn't take payment: the office calls to take the card
-  and confirm the date. Until Mountain High's own standard terms are added
-  (`rollOff.contract.standardTerms` in `lib/companies.ts`), every contract is
-  marked as a test, not binding.
-- **Download for AI** gives the exact contract as a Markdown file, with a
-  short note asking the customer's AI to explain it.
-- **Signing** takes a typed name, a drawn signature and an e-sign consent
-  box. The signature is only accepted for the exact text shown, and only
-  once. The signature record (name, image, time, IP, browser, the
-  contract's SHA-256) and a signed copy (contract plus signature plus
-  signing record) are stored together in the private Vercel Blob store,
-  and the signer can download the signed copy.
-- **After signing**, outside DRY_RUN, the GHL contact gets a note and the
-  `ai-rolloff-contract-signed` and `ai-needs-human` tags, so the office
-  takes it from there.
-- **Trying it by hand:** `npm run contract:create -- --yards=20
-  --name="Test Person" --phone=+15555550100
-  --address="12 Elm St, Greeley, CO 80631" --date=2026-10-20` prints a
-  signing link.
 
 ## Dashboard
 
@@ -110,41 +86,39 @@ Kaizen lead-responder dashboard but counting roll-off leads only. It's at
   Changing the password signs everyone out.
 - **What it counts,** per Denver day, each on the day it happened: Reached
   (the bot's first text to a lead), Responded (the lead's first text back),
-  Booking summaries sent (a booking summary texted, or before 2026-10-21 a signing
-  link) and Bookings signed (a summary signed by name, or a signed contract page). A window picker
+  Booking summaries sent and Bookings signed (a summary signed by name). A window picker
   shows the last 7 to 90 days.
-- **Where the numbers come from:** the same private Blob store as the
-  contracts (`lib/funnelStore.ts`). `sendRollOffTexts.ts` records a lead's
-  first text and `api/webhook.ts` their first reply, as one small file per
-  lead under `funnel/`; contracts are counted from the contract files. In
-  test mode (DRY_RUN) nothing is recorded, so Reached and Responded stay at
-  0 until the bot goes live. For the scheduled job to record first texts,
-  add the Blob store's `BLOB_READ_WRITE_TOKEN` as a GitHub Actions secret
-  too; without it texts still go out, they just aren't counted.
+- **Where the numbers come from:** the private Vercel Blob store
+  (`lib/funnelStore.ts`). `sendRollOffTexts.ts` records a lead's first text
+  and `api/webhook.ts` their first reply and booking steps, as one small
+  file per lead under `funnel/`. In test mode (DRY_RUN) nothing is
+  recorded. The scheduled job needs the Blob store's
+  `BLOB_READ_WRITE_TOKEN` as a GitHub Actions secret (set) to count first
+  texts.
 
-## Before it goes live
+## Live, and how to stop it
 
-1. **Test mode for now (Thomas, 2026-10-10).** The workflow runs with
-   `DRY_RUN` true unless the GitHub repo *variable* `DRY_RUN` says otherwise
-   (Settings > Secrets and variables > Actions > Variables), so switching
-   needs no commit. In test mode it only logs what it would pick up and send,
-   and writes nothing to GHL, replies included (opt-out and hand-off tags and
-   notes are logged, not written). Set the same `DRY_RUN` in Vercel.
-2. `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `lib/rollOff.ts` is `true` since
-   2026-11-03, when the go-ahead to text these leads came through. Set it
-   back to `false` to stop scheduled texts with a deploy (replies keep going).
-3. **Kill switch.** Host a `{"active":true}` file and set `KILLSWITCH_URL`
-   (GitHub secret and Vercel env var). Flip it to `{"active":false}` to stop
-   the importer, the sender and the reply webhook with no deploy. It fails
-   closed: with test mode off, a missing, unreachable or erroring flag means
-   paused (in test mode a missing URL is allowed; a URL that can't be reached
-   is still paused).
-4. **Failure alerts.** A failed or partly failed run fails the GitHub job and
-   a last step posts to Hitta (`HITTA_API_KEY` secret; without it the run log
-   shows a warning). The send step runs even when pick-up failed.
-5. The lead pick-up is tested against a saved copy of the real MTS leads
-   page (`mts-sync/fixtures/rolloff-leads.html`, 2026-10-22). Keep checking
-   the first live runs: if MTS changes the page, save it again.
+The bot has been live since 2026-11-03: the GitHub repo variable `DRY_RUN`
+and the Vercel `DRY_RUN` are `false`, and `ROLLOFF_TCPA_CONSENT_CONFIRMED`
+in `lib/rollOff.ts` is `true`.
+
+1. **Kill switch (fastest, no deploy).** `KILLSWITCH_URL` (GitHub secret
+   and Vercel env var) points at https://rolloff-killswitch.vercel.app/flag.json.
+   Set it to `{"active":false}` to stop the importer, the sender and the
+   reply webhook. Replies that arrive while paused are parked (Blob
+   `parked/`), shown on /admin as "Texts waiting from a pause", and answered
+   by the next run after it's switched back on if they're under 12 hours
+   old; older ones go to the office. It fails closed: with DRY_RUN off, a
+   missing or unreachable flag means paused. Tested 2026-10-22
+   (docs/live-smoke.md).
+2. **Test mode.** Set the repo variable `DRY_RUN` back to `true` (and the
+   Vercel one): everything is logged, nothing is written to GHL.
+3. **Consent flag.** Set `ROLLOFF_TCPA_CONSENT_CONFIRMED` to `false` to stop
+   scheduled texts with a deploy (replies keep going).
+4. **Rolling back a bad deploy:** docs/live-smoke.md.
+5. Lead pick-up is tested against a saved copy of the real MTS leads page
+   (`mts-sync/fixtures/rolloff-leads.html`, 2026-10-22). If MTS changes
+   the page, /admin "Lead pick-up from MTS" warns on 0 rows; save it again.
 
 ## Status page
 
@@ -154,74 +128,97 @@ Important, Key and Basic; each row has a status, last checked and last
 success in Denver time. Job and service results are recorded in the Blob
 store (`lib/runStatus.ts`) and anything stale shows Warning, Down or
 Unknown. The Latest Update section reads `lib/latestUpdate.ts`: replace the entry
-each round (only the current round is shown). Signed contracts whose GHL note failed are parked in Blob and
-retried by the scheduled job; any still waiting show on the page.
+each round (only the current round is shown).
 
 ## Who gets alerted
 
-- A failed or partly failed scheduled run: the last workflow step posts to
-  Hitta, which tells Thomas (needs the `HITTA_API_KEY` secret).
-- A job that simply stops running (GitHub disables schedules on inactive
-  repos, or Actions has an outage) cannot alert itself. `/admin/status.json`
-  turns `overall` to `down` once the pick-up or texting job has not run for
-  60 minutes (`warning` after 30). The COO/CAO health check reads that URL
-  (with the `ADMIN_STATUS_TOKEN` bearer token) and reports a `down` to Thomas.
-  Values are lowercase: `ok|warning|down|unknown`, tiers
-  `important|key|basic`.
+**Thomas**, through one path: his CAO health check reads
+`/admin/status.json` (bearer `ADMIN_STATUS_TOKEN`), reports a problem to
+Hitta, and Hitta tells him. There is no `HITTA_API_KEY` in the workflows
+(Thomas's decision, 2026-10-21): every failure is written to the status
+page instead, so the one check sees all of it.
+
+- **A failed scheduled run:** the job's own code marks its row Down, and
+  if a step failed anyway, the last workflow step
+  (`scripts/recordFailedRun.ts`) marks it Down. "Lead pick-up from MTS"
+  and "Scheduled texts" are Important rows, so `overall` turns `down`
+  straight away.
+- **A job that stops running** (GitHub throttles or disables schedules,
+  Actions is down): `overall` turns `warning` once pick-up or texting has
+  not run for 60 minutes and `down` after 120 (`lib/adminStatus.ts`).
+- **Replies:** a webhook error marks "Replies answered" Down. If GHL stops
+  calling the webhook, each texting run checks for leads whose last text
+  has gone unanswered for more than 15 minutes and marks "Replies
+  answered" Down within 120 minutes.
+- **The daily backup:** a failure marks "Latest backup" Down (Key row, so
+  `overall` is `warning`); no backup for 30 hours is a Warning, 54 hours
+  Down.
 - A run paused by the kill switch shows "Scheduled texts: Warning".
-- A failed or stale daily backup shows on `/admin` as "Latest backup".
+
+Values are lowercase: `ok|warning|down|unknown`, tiers `important|key|basic`.
+Whether the CAO is polling and an alert reaches Thomas is recorded in
+docs/live-smoke.md.
 
 ## Backup and restore
 
-`.github/workflows/backup-blobs.yml` copies `contracts/`, `pending/` and
-`funnel/` from the Blob store every day into a GitHub Actions artifact
+`.github/workflows/backup-blobs.yml` copies the saved records (`funnel/`,
+`parked/`, `quality/`, and any old `contracts/`) from the Blob store every day into a GitHub Actions artifact
 named `blob-backup` (kept 90 days) and records the "Latest backup" row on
 `/admin` (Warning after 30 hours, Down after 54). Run it by hand any time:
 `BLOB_READ_WRITE_TOKEN=... BLOB_NAMESPACE=production npm run backup`.
 
 Restore: download the artifact, unzip it to a folder, then
 `npm run restore -- <folder> restore-test/` puts every file under a scratch
-prefix (`restore-test/contracts/<id>/signed.html` opens the signed copy).
-For a real restore leave the prefix off; it never overwrites existing files.
-The copy and restore code is covered by `lib/backup.test.ts`; a restore
-against the real store has not been run yet (the store is connected, but no
-restore drill is recorded; see docs/live-smoke.md).
+prefix. For a real restore leave the prefix off; it never overwrites
+existing files. The copy and restore code is covered by
+`lib/backup.test.ts`; the restore drill against the real store is recorded
+in docs/live-smoke.md.
 
 ## Model checks
 
-`npm test` checks the prompt and the safety rules offline.
-`npm run eval` (needs `ANTHROPIC_API_KEY`) sends the tricky messages to the
-real model, grades each draft with code (no URLs, only approved prices, no
-date promises, no "booked", admits being an AI) and writes
-`docs/eval-results.md`. Without the key locally, run the **Model check**
-workflow from the Actions tab (`.github/workflows/eval-drafts.yml`): it
-uses the repo's `ANTHROPIC_API_KEY` secret and prints the results to the
-run log and uploads `docs/eval-results.md` as an artifact. **After every
-prompt or model change, re-run it and commit that file** (date, model, pass or
-fail per case) so a regression can be traced. The model default is the alias
-`claude-sonnet-5` (`lib/claude.ts`). The eval showed the served model ID equals
-the alias, so there is no dated snapshot to pin; if one is published later,
-set `CLAUDE_MODEL_ID` and re-run the eval.
+`npm test` checks the prompt and the safety rules offline. The **Model
+check** workflow (`.github/workflows/eval-drafts.yml`, Actions tab, uses the
+repo's `ANTHROPIC_API_KEY` secret, sends no texts) runs `npm run eval`:
 
-Two models are used: `claude-sonnet-5` (`CLAUDE_MODEL_ID`) writes the replies
-and nudges; the cheaper `claude-haiku-5-5` (`CLAUDE_CHEAP_MODEL_ID`) makes the
-small hand-off yes/no check and reads the booking answers out of a text. The
-eval checks both jobs. To roll the cheap jobs back to Sonnet, set
-`CLAUDE_CHEAP_MODEL_ID=claude-sonnet-5`.
+- a **tuning set** (`EVAL_CASES` in `lib/draftChecks.ts`), the messages the
+  prompt was written against;
+- a **held-out set** (`lib/heldOutCases.ts`), whole threads in each reply
+  mode (new address, change after the summary, after signing, wrong name)
+  that are never used to tune the prompt;
+- the cheap model's two jobs (reading booking answers, spotting a
+  hand-off) against known answers.
+
+Each draft is graded by the same code checks that run before every live
+text. It writes `docs/eval-results.md` with the run link, commit and
+results. **CI enforces it:** `lib/evalFingerprint.test.ts` hashes every
+prompt, customer text, approved fact, both eval sets and both model IDs, and
+fails until `docs/eval-results.md` was written for that exact hash with
+every case passing. So after a prompt, text, fact or model change, run the
+Model check on the branch and commit the `docs/eval-results.md` from its
+artifact.
+
+Models: `claude-sonnet-5` (`CLAUDE_MODEL_ID`) writes replies and nudges;
+`claude-haiku-5-5` (`CLAUDE_CHEAP_MODEL_ID`) does the hand-off yes/no and
+reads booking answers (set it to `claude-sonnet-5` to roll back). Neither
+has a dated snapshot ID to pin (the API serves the alias as is), so the
+decision is recorded in `lib/claude.ts` with a re-check date of
+2027-02-01, and drift is caught by the checks before every text plus the
+"Reply quality" row on /admin (7-day share of drafts held back; Warning
+above 10%).
 
 ## Logs
 
 Logs are JSON lines on stdout: Vercel keeps them only a short time (check
 the plan's retention) and GitHub Actions keeps run logs 90 days. The
-durable records are the Blob store (contracts, signatures, funnel counts)
-and the GHL notes and tags the bot writes on every send and hand-off.
+durable records are the Blob store (funnel counts, parked replies,
+reply-quality records) and the GHL notes and tags the bot writes on every send and hand-off.
 
 ## Setup
 
 1. `npm ci`, then `npx playwright install chromium` (the lead-import test
    needs it), copy `.env.example` to `.env.local` and fill it in.
 2. Deploy to Vercel (`vercel deploy --prod`) and set the same variables
-   there. Connect a Blob store (Storage tab) for contracts and signatures.
+   there. Connect a Blob store (Storage tab) for the saved records.
 3. In GHL, add a workflow: trigger **Customer Replied** (SMS), filtered to
    contacts with the `ai-rolloff-eligible` tag, action **Webhook** POST to
    `https://<vercel-domain>/api/webhook?secret=<WEBHOOK_SHARED_SECRET>` with
@@ -229,9 +226,9 @@ and the GHL notes and tags the bot writes on every send and hand-off.
 4. Add the GitHub Actions secrets the workflow reads: `ANTHROPIC_API_KEY`,
    `MTS_EMAIL`, `MTS_PASSWORD`, `GHL_API_TOKEN`, `GHL_LOCATION_ID`,
    `GHL_COMPANY_FIELD_KEY`, `KILLSWITCH_URL`, `BLOB_READ_WRITE_TOKEN` (the
-   Vercel project's Blob token) and `HITTA_API_KEY` (failure alerts). The
-   workflows set `BLOB_NAMESPACE=production` so the job and the Vercel site
-   use the same Blob folders (`status/`, `pending/`, `contracts/`); without
+   Vercel project's Blob token). The workflows set
+   `BLOB_NAMESPACE=production` so the job and the Vercel site use the same
+   Blob folders (`status/`, `funnel/`, `parked/`, `quality/`); without
    it, or on a preview, everything goes to `test-` folders.
    Until they're added, the job skips the step that needs them instead of
    failing: lead pick-up needs the MTS login, texts need the GHL token and
@@ -242,6 +239,8 @@ and the GHL notes and tags the bot writes on every send and hand-off.
 ```
 npx playwright install chromium   # once, before npm test
 npm run typecheck
+npm run lint
+npm run deadcode                  # knip: unused files and exports
 npm test
 ```
 

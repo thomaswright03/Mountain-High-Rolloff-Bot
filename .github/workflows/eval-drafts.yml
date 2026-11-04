@@ -5,7 +5,10 @@ name: Model check
 # grades each draft with code and prints docs/eval-results.md to the log,
 # also saved as a run artifact. Uses the ANTHROPIC_API_KEY repo secret, so
 # nobody needs the key on their own computer. Costs a few cents per run.
-# Re-run after any prompt or model change.
+# CI (lib/evalFingerprint.test.ts) fails on any branch whose prompts,
+# customer texts, facts or model IDs no longer match the fingerprint in
+# docs/eval-results.md: run this workflow on that branch, then commit the
+# docs/eval-results.md from the run's artifact. Sends no texts.
 on:
   workflow_dispatch: {}
 

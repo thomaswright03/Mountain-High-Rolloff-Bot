@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
 import { findCompany } from "../lib/companies.js";
-import { escapeHtml } from "../lib/contract.js";
+import { escapeHtml } from "../lib/html.js";
 import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";
 
 const BRAND = "Mountain High Disposal";
@@ -26,6 +26,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <title>Page not found</title><style nonce="${nonce}">${SITE_STYLES}${SITE_NAV_STYLES}</style></head><body>
 ${siteMasthead(company?.displayName ?? BRAND, `<p class="sub">That page doesn't exist.</p>`, `<a href="/dashboard">Dashboard</a><a href="/admin">Status</a>`)}
-<div class="card" style="text-align:center"><p>Questions about a dumpster? Call the office at <a href="tel:${escapeHtml(phone.replace(/[^0-9+]/g, ""))}">${escapeHtml(phone)}</a>.</p></div>
+<div class="card centered"><p>Questions about a dumpster? Call the office at <a href="tel:${escapeHtml(phone.replace(/[^0-9+]/g, ""))}">${escapeHtml(phone)}</a>.</p></div>
 </body></html>`);
 }

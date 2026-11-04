@@ -49,10 +49,12 @@ const COMPANIES: CompanyConfig[] = [
     rollOff: {
       // The booking form itself is MTS's RollOffSignupWidget, embedded on
       // this page — the same MTS system the residential signup uses.
-      bookingUrl: "https://mountainhighdisposal.com/temp-roll-off--signup/",
       // Thomas, 2026-10-22: his own address for now, until the customer
       // team's is set up.
+      // A stand-in until Mountain High's customer team address is set in
+      // ROLLOFF_BOOKING_EMAIL (Vercel): the developer's own inbox.
       bookingEmail: "t@thomasewright.com",
+      bookingEmailIsTeam: false,
       serviceArea: `
         Mountain High delivers roll-off dumpsters in Colorado only. Cities
         served: Ault, Aurora, Berthoud, Centennial, Cherry Hills Village,
@@ -128,18 +130,23 @@ const COMPANIES: CompanyConfig[] = [
         overfillFee: 100,
         // Mountain High's own roll-off rental terms are not provided yet
         // (open item in STATE.md); until then every contract says it's a test.
-        standardTerms: null,
       },
     },
   },
 ];
 
-export function allCompanies(): readonly CompanyConfig[] {
-  return COMPANIES;
-}
 
 export function findCompany(matchValue: string | undefined): CompanyConfig | undefined {
   if (!matchValue) return undefined;
   const normalized = matchValue.trim().toLowerCase();
   return COMPANIES.find((c) => c.matchValue.toLowerCase() === normalized);
+}
+
+/** Where a signed booking is emailed: the ROLLOFF_BOOKING_EMAIL setting
+ * when it's set (that is the customer team's address), otherwise the
+ * brand's config. */
+export function bookingEmailFor(company: CompanyConfig, env: NodeJS.ProcessEnv = process.env): { to: string | null; isTeam: boolean } {
+  const fromEnv = env.ROLLOFF_BOOKING_EMAIL?.trim();
+  if (fromEnv) return { to: fromEnv, isTeam: true };
+  return { to: company.rollOff.bookingEmail, isTeam: company.rollOff.bookingEmailIsTeam };
 }
