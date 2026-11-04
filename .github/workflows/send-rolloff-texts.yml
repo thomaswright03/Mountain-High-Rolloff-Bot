@@ -21,7 +21,9 @@ name: Send roll-off texts
 # pick-up failed, and a final step reports any failure to Hitta.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Every 30 minutes, same as the residential bot's send-outreach.yml
+    # (Thomas, 2026-11-03). Every 10 used too many paid Actions minutes.
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 concurrency:

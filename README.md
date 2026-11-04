@@ -14,12 +14,12 @@ login; they're kept apart by GHL tags.
 ## How it works
 
 - **Who it texts:** GHL contacts tagged `ai-rolloff-eligible`.
-  `mts-sync/importRollOffLeads.ts` applies the tag. Every 10 minutes it reads
+  `mts-sync/importRollOffLeads.ts` applies the tag. Every 30 minutes it reads
   MTS's Manage Roll-Off Leads page (`/rolloffleads/list`) and picks up Mountain
   High leads that are New or Follow-Up, serviceable, and dated today or
   yesterday. The old backlog is never picked up, and neither is Loveland or
   anyone out of state. The residential bot (Kaizen) skips these contacts.
-- **Scheduled texts:** `mts-sync/sendRollOffTexts.ts`, run every 10 minutes by
+- **Scheduled texts:** `mts-sync/sendRollOffTexts.ts`, run every 30 minutes by
   `.github/workflows/send-rolloff-texts.yml`. A fixed first text 30+ minutes
   after the lead lands, a nudge the next day, a final nudge 3 days later, then
   nothing. Texts only go out 8am-10pm Denver time, never to Loveland or out of
