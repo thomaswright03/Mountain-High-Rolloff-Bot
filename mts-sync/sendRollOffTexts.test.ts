@@ -38,7 +38,8 @@ before(async () => {
       fresh: base("fresh"),
       stuck_old: { id: "stuck_old", tags: ["ai-rolloff-processing"], dateUpdated: ago(45) },
       stuck_new: { id: "stuck_new", tags: ["ai-rolloff-processing"], dateUpdated: ago(2) },
-      too_new: base("too_new", { dateAdded: ago(10) }),
+      too_new: base("too_new", { dateAdded: ago(5) }),
+      brand_new: base("brand_new", { dateAdded: ago(11) }),
       bad_name: base("bad_name", { firstName: "https://evil.example/pay" }),
       dnd: base("dnd", { dnd: true }),
       no_phone: base("no_phone", { phone: "" }),
@@ -156,9 +157,14 @@ test("a name that isn't a name never reaches the text", async () => {
   assert.match(sentTo("bad_name")[0]!, /^Hey there, this is Max/);
 });
 
-test("no cold open while the lead may still be on the form", async () => {
+test("no cold open while the lead may still be on the form (under 10 minutes)", async () => {
   assert.equal(await processEntry({ contactId: "too_new" }, live()), "skipped");
-  assert.equal(ghl.sentMessages.length, 0);
+  assert.equal(sentTo("too_new").length, 0);
+});
+
+test("a lead picked up 10+ minutes ago gets the first text", async () => {
+  assert.equal(await processEntry({ contactId: "brand_new" }, live()), "sent");
+  assert.equal(sentTo("brand_new").length, 1);
 });
 
 test("nothing goes out overnight — held for the next run in business hours", async () => {

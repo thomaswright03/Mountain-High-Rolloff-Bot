@@ -32,8 +32,11 @@ export const ROLLOFF_FOLLOWUP_2_TAG = "ai-rolloff-followup-2-sent";
 export const ROLLOFF_BOOKED_TAG = "ai-rolloff-booked";
 
 /** Someone who stops at page 2 may only be grabbing their card — give them
- * this long after the lead lands before texting. */
-export const COLD_OPEN_DELAY_MINUTES = 30;
+ * this long after the lead is picked up before texting. Was 30; Thomas,
+ * 2026-11-03: 10, to text them as soon as possible. Pick-up already lags the
+ * form, and the MTS contract check before every send still stops a text to
+ * anyone who finished. */
+export const COLD_OPEN_DELAY_MINUTES = 10;
 /** A dumpster is usually needed for a project happening now, so the drip is
  * tighter than residential's 24h / +1 week: one nudge the next day, one
  * final one three days after that, then stop for good. */

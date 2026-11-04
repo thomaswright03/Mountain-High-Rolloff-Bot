@@ -20,7 +20,7 @@ login; they're kept apart by GHL tags.
   yesterday. The old backlog is never picked up, and neither is Loveland or
   anyone out of state. The residential bot (Kaizen) skips these contacts.
 - **Scheduled texts:** `mts-sync/sendRollOffTexts.ts`, run every 30 minutes by
-  `.github/workflows/send-rolloff-texts.yml`. A fixed first text 30+ minutes
+  `.github/workflows/send-rolloff-texts.yml`. A fixed first text 10+ minutes
   after the lead lands, a nudge the next day, a final nudge 3 days later, then
   nothing. Texts only go out 8am-10pm Denver time, never to Loveland or out of
   state, and never once MTS shows a contract made since they started.

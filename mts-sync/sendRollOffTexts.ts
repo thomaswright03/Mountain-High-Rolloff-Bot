@@ -176,7 +176,7 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   const stage = plan.send;
 
   // Unlike the residential cold open, every roll-off text waits for a
-  // reasonable hour: even the first one goes out at least half an hour after
+  // reasonable hour: even the first one goes out at least 10 minutes after
   // they left the form, so there's no "they're on the site right now" reason
   // to text at 11pm. Due, so the next run in hours picks it back up.
   if (!isWithinQuietHours(now, company.timezone)) {
