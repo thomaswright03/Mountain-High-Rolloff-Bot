@@ -4,8 +4,8 @@ name: Send roll-off texts
 # up new leads from MTS's roll-off lead list (mts-sync/importRollOffLeads.ts),
 # then runs mts-sync/sendRollOffTexts.ts, which sends whichever text is due for each
 # contact tagged ai-rolloff-eligible: the first text on the first run after they
-# leave the booking form, a next-day nudge, and one final nudge three days
-# later. Needs Playwright because it
+# leave the booking form, a next-day nudge, and one final nudge a week
+# later, the same drip as the residential bot. Needs Playwright because it
 # checks MTS's real Contracts data before every real send, so nobody who
 # already finished booking gets texted to finish.
 #

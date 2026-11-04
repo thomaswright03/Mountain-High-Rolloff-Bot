@@ -80,10 +80,10 @@ test("plan: follow-up 1 only after 24h of silence since our last text", () => {
   assert.deepEqual(planRollOffText({ tags: [], coldOpenSent: true, history: [turn("outbound", 25)], now: NOW }), { send: "follow_up_1" });
 });
 
-test("plan: follow-up 2 only 3 days after follow-up 1, then nothing ever again", () => {
+test("plan: follow-up 2 only a week after follow-up 1, then nothing ever again", () => {
   const tags = [ROLLOFF_FOLLOWUP_1_TAG];
-  assert.ok("wait" in planRollOffText({ tags, coldOpenSent: true, history: [turn("outbound", 71)], now: NOW }));
-  assert.deepEqual(planRollOffText({ tags, coldOpenSent: true, history: [turn("outbound", 73)], now: NOW }), { send: "follow_up_2" });
+  assert.ok("wait" in planRollOffText({ tags, coldOpenSent: true, history: [turn("outbound", 167)], now: NOW }));
+  assert.deepEqual(planRollOffText({ tags, coldOpenSent: true, history: [turn("outbound", 169)], now: NOW }), { send: "follow_up_2" });
   assert.ok("wait" in planRollOffText({ tags: [...tags, ROLLOFF_FOLLOWUP_2_TAG], coldOpenSent: true, history: [turn("outbound", 500)], now: NOW }));
 });
 

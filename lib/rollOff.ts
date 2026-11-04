@@ -31,11 +31,11 @@ export const ROLLOFF_FOLLOWUP_2_TAG = "ai-rolloff-followup-2-sent";
  * finished on their own or through the office. Nothing more is sent. */
 export const ROLLOFF_BOOKED_TAG = "ai-rolloff-booked";
 
-/** A dumpster is usually needed for a project happening now, so the drip is
- * tighter than residential's 24h / +1 week: one nudge the next day, one
- * final one three days after that, then stop for good. */
+/** Same drip as the residential bot (Thomas, 2026-11-03; it was 3 days for
+ * the final nudge): one nudge after 24h of silence, one final one a week after
+ * that, then stop for good. */
 export const FOLLOWUP_1_DELAY_HOURS = 24;
-export const FOLLOWUP_2_DELAY_HOURS = 24 * 3;
+export const FOLLOWUP_2_DELAY_HOURS = 24 * 7;
 /** How far back an MTS contract counts as "they've booked since starting"
  * when we can't tell exactly when they started — see bookingCheckSince. */
 const BOOKING_LOOKBACK_DAYS = 14;

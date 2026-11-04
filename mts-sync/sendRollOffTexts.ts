@@ -1,8 +1,8 @@
 // Roll-off dumpster abandoned-cart texts (Thomas, 2026-10-10) — see
 // lib/rollOff.ts for the whole flow. For every contact tagged
 // ai-rolloff-eligible, sends whichever text is due: the fixed cold open
-// (once the lead is COLD_OPEN_DELAY_MINUTES old), a next-day nudge, then one
-// final nudge three days later, then nothing unless they reply (replies go
+// (on the run that picks the lead up), a next-day nudge, then one final
+// nudge a week later, then nothing unless they reply (replies go
 // through api/webhook.ts -> lib/rollOffReply.ts).
 //
 // Cold open and follow-ups live in one job, unlike Kaizen's residential
