@@ -15,6 +15,7 @@ export const LATEST_UPDATES: UpdateEntry[] = [
     ],
     changes: [
       "Go-live: the go-ahead to text roll-off leads came through, so the consent gate is open. Scheduled texts start when DRY_RUN is turned off in GitHub and Vercel; the kill switch still stops everything.",
+      "Runs like the residential bot: the job runs every 30 minutes, a new lead gets the first text on the run that picks it up, texts only go out 8am-9pm Denver time (the TCPA limit; it was 10pm), and the final nudge goes a week after the next-day one (it was 3 days).",
     ],
   },
   {

@@ -31,17 +31,11 @@ export const ROLLOFF_FOLLOWUP_2_TAG = "ai-rolloff-followup-2-sent";
  * finished on their own or through the office. Nothing more is sent. */
 export const ROLLOFF_BOOKED_TAG = "ai-rolloff-booked";
 
-/** Someone who stops at page 2 may only be grabbing their card — give them
- * this long after the lead is picked up before texting. Was 30; Thomas,
- * 2026-11-03: 10, to text them as soon as possible. Pick-up already lags the
- * form, and the MTS contract check before every send still stops a text to
- * anyone who finished. */
-export const COLD_OPEN_DELAY_MINUTES = 10;
-/** A dumpster is usually needed for a project happening now, so the drip is
- * tighter than residential's 24h / +1 week: one nudge the next day, one
- * final one three days after that, then stop for good. */
+/** Same drip as the residential bot (Thomas, 2026-11-03; it was 3 days for
+ * the final nudge): one nudge after 24h of silence, one final one a week after
+ * that, then stop for good. */
 export const FOLLOWUP_1_DELAY_HOURS = 24;
-export const FOLLOWUP_2_DELAY_HOURS = 24 * 3;
+export const FOLLOWUP_2_DELAY_HOURS = 24 * 7;
 /** How far back an MTS contract counts as "they've booked since starting"
  * when we can't tell exactly when they started — see bookingCheckSince. */
 const BOOKING_LOOKBACK_DAYS = 14;
@@ -114,24 +108,16 @@ export type RollOffPlan = { send: RollOffStage } | { wait: string };
 export function planRollOffText(input: {
   tags: string[];
   coldOpenSent: boolean;
-  /** When this booking attempt started — see leadLandedAt in
-   * lib/rollOffIntake.ts. */
-  contactDateAdded?: string;
   history: ConversationTurn[];
   now: Date;
 }): RollOffPlan {
   const tags = input.tags.map((t) => t.toLowerCase());
   if (tags.includes(ROLLOFF_FOLLOWUP_2_TAG)) return { wait: "both follow-ups already sent" };
 
-  if (!input.coldOpenSent) {
-    const added = input.contactDateAdded ? Date.parse(input.contactDateAdded) : NaN;
-    // A missing/unreadable date never blocks forever — GHL always sets one,
-    // so this only matters for a malformed record.
-    if (!Number.isNaN(added) && input.now.getTime() - added < COLD_OPEN_DELAY_MINUTES * 60_000) {
-      return { wait: `lead is under ${COLD_OPEN_DELAY_MINUTES} minutes old, they may still be finishing` };
-    }
-    return { send: "cold_open" };
-  }
+  // No wait after pick-up, same as the residential bot (Thomas, 2026-11-03:
+  // the bots should run the same way). Pick-up already lags the form, and the
+  // MTS contract check before every send stops a text to anyone who finished.
+  if (!input.coldOpenSent) return { send: "cold_open" };
 
   const lastTurn = input.history[input.history.length - 1];
   // Their latest text still needs an answer — that's the reply path's job

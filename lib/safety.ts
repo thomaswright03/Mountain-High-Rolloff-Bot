@@ -55,13 +55,14 @@ const ESCALATION_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 // below) — per Thomas's call 2026-07-29: if someone texts us, they're
 // already awake and engaged, so holding a reply in an ongoing conversation
 // they started serves no one.
-// Window CONFIRMED BY THOMAS 2026-08-07: 8am-10pm local time — no drip send
-// before 8am or at/after 10pm.
+// Window: 8am-9pm local time, the TCPA limit for marketing texts (47 CFR
+// 64.1200(c)(1)), same as the residential bot since 2026-10-12. Was 8am-10pm
+// (Thomas, 2026-08-07), which ran an hour past the legal limit.
 export function isWithinQuietHours(now: Date, timezone: string): boolean {
   const hour = Number(
     new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: timezone }).format(now)
   );
-  return hour >= 8 && hour < 22;
+  return hour >= 8 && hour < 21;
 }
 
 export function evaluateInbound(messageBody: string): SafetyVerdict {

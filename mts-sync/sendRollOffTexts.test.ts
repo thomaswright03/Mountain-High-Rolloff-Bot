@@ -38,8 +38,7 @@ before(async () => {
       fresh: base("fresh"),
       stuck_old: { id: "stuck_old", tags: ["ai-rolloff-processing"], dateUpdated: ago(45) },
       stuck_new: { id: "stuck_new", tags: ["ai-rolloff-processing"], dateUpdated: ago(2) },
-      too_new: base("too_new", { dateAdded: ago(5) }),
-      brand_new: base("brand_new", { dateAdded: ago(11) }),
+      brand_new: base("brand_new", { dateAdded: ago(0) }),
       bad_name: base("bad_name", { firstName: "https://evil.example/pay" }),
       dnd: base("dnd", { dnd: true }),
       no_phone: base("no_phone", { phone: "" }),
@@ -76,8 +75,8 @@ before(async () => {
       conv_fu1_due: [{ direction: "outbound", body: "cold open", dateAdded: ago(60 * 25) }],
       conv_fu1_not_due: [{ direction: "outbound", body: "cold open", dateAdded: ago(60 * 2) }],
       conv_fu2_due: [
-        { direction: "outbound", body: "follow-up 1", dateAdded: ago(60 * 73) },
-        { direction: "outbound", body: "cold open", dateAdded: ago(60 * 100) },
+        { direction: "outbound", body: "follow-up 1", dateAdded: ago(60 * 169) },
+        { direction: "outbound", body: "cold open", dateAdded: ago(60 * 200) },
       ],
       conv_lead_replied: [
         { direction: "inbound", body: "what sizes do you have?", dateAdded: ago(60 * 26) },
@@ -146,7 +145,6 @@ test("the first text that goes out counts the lead as reached on the dashboard, 
 });
 
 test("nothing is counted as reached when nothing went out", async () => {
-  assert.equal(await processEntry({ contactId: "too_new" }, live()), "skipped");
   assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW, consentConfirmed: false }), "retry");
   assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts: async () => [{ custNumber: "42", name: "Jane Doe", medium: "Website", status: "Active", saleDate: "10/10/2026" }] })), "skipped");
   assert.equal(funnel.files.size, 0);
@@ -157,12 +155,7 @@ test("a name that isn't a name never reaches the text", async () => {
   assert.match(sentTo("bad_name")[0]!, /^Hey there, this is Max/);
 });
 
-test("no cold open while the lead may still be on the form (under 10 minutes)", async () => {
-  assert.equal(await processEntry({ contactId: "too_new" }, live()), "skipped");
-  assert.equal(sentTo("too_new").length, 0);
-});
-
-test("a lead picked up 10+ minutes ago gets the first text", async () => {
+test("a lead picked up seconds ago gets the first text on the same run, like the residential bot", async () => {
   assert.equal(await processEntry({ contactId: "brand_new" }, live()), "sent");
   assert.equal(sentTo("brand_new").length, 1);
 });
@@ -251,7 +244,7 @@ test("follow-ups wait their turn: not before 24h, and never while the lead's tex
   assert.equal(ghl.sentMessages.length, 0);
 });
 
-test("final follow-up three days after the first, tagged so nothing follows it", async () => {
+test("final follow-up a week after the first, tagged so nothing follows it", async () => {
   claude.draft = "no worries if you're all set, I'm around if you still need one :)";
   assert.equal(await processEntry({ contactId: "fu2_due" }, live()), "sent");
   assert.ok(tagsOf("fu2_due").includes("ai-rolloff-followup-2-sent"));
