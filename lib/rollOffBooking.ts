@@ -216,11 +216,15 @@ export function parseBookingSummary(company: CompanyConfig, onFile: ContactOnFil
   return (["current", "2026-10"] as const).some((w) => buildBookingSummary(company, onFile, answers, w) === sent) ? answers : null;
 }
 
-/** Our newest text, if it's a booking summary. */
+/** The newest booking summary we texted, even with questions answered
+ * after it. It used to count only if it was our very newest text, so one
+ * answered question made the bot forget it and send the summary again
+ * (Sam Fairchild, 2026-11-03: sent three times). parseBookingSummary still
+ * checks it word for word before anything is signed. */
 export function latestSummary(history: ConversationTurn[]): string | null {
   for (let i = history.length - 1; i >= 0; i--) {
     const turn = history[i]!;
-    if (turn.direction === "outbound") return turn.body.includes(SUMMARY_SIGN_LINE) ? turn.body : null;
+    if (turn.direction === "outbound" && turn.body.includes(SUMMARY_SIGN_LINE)) return turn.body;
   }
   return null;
 }
@@ -236,16 +240,66 @@ function nameWords(s: string): string[] {
     .filter(Boolean);
 }
 
+/** Short and long forms of a first name, both ways. A name that starts
+ * with the other (Sam / Samuel, Chris / Christopher) is matched without
+ * being listed here. */
+const NICKNAMES: string[][] = [
+  ["bob", "bobby", "rob", "robbie", "robert"],
+  ["bill", "billy", "will", "willy", "liam", "william"],
+  ["jim", "jimmy", "jamie", "james"],
+  ["mike", "mikey", "michael"],
+  ["dick", "rick", "ricky", "rich", "richard"],
+  ["jack", "john", "johnny", "jon"],
+  ["peggy", "maggie", "meg", "margaret"],
+  ["liz", "lizzy", "beth", "betty", "eliza", "elizabeth"],
+  ["kate", "katie", "kathy", "cathy", "katherine", "catherine", "kathryn"],
+  ["sue", "susie", "susan", "suzanne"],
+  ["ted", "teddy", "ed", "eddie", "edward", "theodore"],
+  ["hank", "harry", "henry"],
+  ["chuck", "charlie", "charles"],
+  ["peg", "peggy", "margaret"],
+  ["patty", "patsy", "tricia", "trish", "patricia"],
+  ["tony", "anthony"],
+  ["dave", "david"],
+  ["steve", "stephen", "steven"],
+  ["joe", "joey", "joseph"],
+  ["tom", "tommy", "thomas"],
+  ["matt", "matthew"],
+  ["dan", "danny", "daniel"],
+  ["nick", "nicholas"],
+  ["andy", "drew", "andrew"],
+  ["greg", "gregory"],
+  ["jen", "jenny", "jennifer"],
+  ["jess", "jessie", "jessica"],
+  ["becky", "rebecca"],
+  ["abby", "abigail"],
+  ["alex", "alexander", "alexandra"],
+];
+
+/** The first name they signed with is the one on file, or a short or long
+ * form of it (Sam Fairchild signed "Samuel Fairchild", 2026-11-03). */
+function sameFirstName(signed: string, onFile: string): boolean {
+  if (signed === onFile) return true;
+  const [short, long] = signed.length < onFile.length ? [signed, onFile] : [onFile, signed];
+  if (short.length >= 3 && long.startsWith(short)) return true;
+  return NICKNAMES.some((group) => group.includes(signed) && group.includes(onFile));
+}
+
 /** Their reply is their full name: the first and last name on file, and
  * nothing much else (a short reply, so "Sam Lee but make it a 30 yard"
- * isn't a signature). Deterministic on purpose: a "yes" or an emoji never
- * signs anything. */
+ * isn't a signature). The last name must match exactly; the first name may
+ * be a short or long form of the one on file. Deterministic on purpose: a
+ * "yes" or an emoji never signs anything. */
 export function isSignature(reply: string, firstName: string, lastName: string): boolean {
   const words = nameWords(reply);
   const first = nameWords(firstName);
   const last = nameWords(lastName);
   if (words.length === 0 || words.length > first.length + last.length + 2 || first.length === 0 || last.length === 0) return false;
-  return first.every((w) => words.includes(w)) && last.every((w) => words.includes(w));
+  if (!last.every((w) => words.includes(w))) return false;
+  if (first.every((w) => words.includes(w))) return true;
+  // One first name on file: any word before the last name may be its short or long form.
+  const lastStart = words.indexOf(last[0]!);
+  return first.length === 1 && words.slice(0, Math.max(lastStart, 0)).some((w) => sameFirstName(w, first[0]!));
 }
 
 /** A reply that reads like a name (2-4 words, letters only) but isn't the

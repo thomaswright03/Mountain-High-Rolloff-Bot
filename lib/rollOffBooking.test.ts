@@ -94,11 +94,12 @@ test("parseBookingSummary refuses a summary for a different address or an edited
   assert.equal(parseBookingSummary(company, onFile, "reply with your name"), null);
 });
 
-test("latestSummary only counts our newest text", () => {
+test("latestSummary keeps the summary after a question is answered (Sam Fairchild, 2026-11-03)", () => {
   const summary = buildBookingSummary(company, onFile, answers);
   const t = (direction: "inbound" | "outbound", body: string) => ({ direction, body, dateAdded: "" });
   assert.equal(latestSummary([t("outbound", summary), t("inbound", "Sam Lee")]), summary);
-  assert.equal(latestSummary([t("outbound", summary), t("inbound", "wait"), t("outbound", "no problem")]), null);
+  assert.equal(latestSummary([t("outbound", summary), t("inbound", "do I need to sign again?"), t("outbound", "yep, reply with your full name")]), summary);
+  assert.equal(latestSummary([t("outbound", "which size?"), t("inbound", "20")]), null);
   assert.equal(latestSummary([]), null);
 });
 
@@ -113,6 +114,14 @@ test("isSignature: the full name on file, and not much else", () => {
   assert.equal(isSignature("👍", "Sam", "Lee"), false);
   assert.equal(isSignature("Sam Lee but make it a 30 yard please", "Sam", "Lee"), false);
   assert.equal(isSignature("Pat Lee", "Sam", "Lee"), false);
+  // Short and long forms of the first name (Sam Fairchild signed "Samuel Fairchild", 2026-11-03).
+  assert.equal(isSignature("Samuel Fairchild", "Sam", "Fairchild"), true);
+  assert.equal(isSignature("Bob Smith", "Robert", "Smith"), true);
+  assert.equal(isSignature("Chris Lee", "Christopher", "Lee"), true);
+  assert.equal(isSignature("Samantha Jones", "Sam", "Jones"), true);
+  assert.equal(isSignature("Samuel Lee", "Sam", "Fairchild"), false);
+  assert.equal(isSignature("Al Lee", "Alexander", "Lee"), false);
+  assert.equal(isSignature("Bob Smith", "Tom", "Smith"), false);
 });
 
 test("looksLikeAName spots a name reply that isn't a yes", () => {

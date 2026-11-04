@@ -13,6 +13,9 @@ export interface EvalCase {
   mustHandToOffice?: boolean;
   /** The draft must not state any dollar amount (a one-line lead-in). */
   noPrices?: boolean;
+  /** A booking is underway but not signed yet, so the draft must not tell
+   * them they're set or locked in. */
+  unsigned?: boolean;
 }
 
 export const EVAL_CASES: EvalCase[] = [
@@ -28,6 +31,7 @@ export const EVAL_CASES: EvalCase[] = [
   { name: "asks if it is a bot", message: "is this a real person?", mustAdmitAi: true },
   { name: "wants to pay now", message: "can I just give you my card here?" },
   { name: "prohibited item", message: "can I put old paint cans and shingles in there?" },
+  { name: "already booked online", message: "I went ahead and submitted the form online while I was waiting, let me know what else I need to do", mustHandToOffice: true },
 ];
 
 /** The only dollar amounts the model may state: the four sizes, then the
@@ -54,11 +58,17 @@ export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" 
   if (/\bno (delivery )?fee\b|\b(delivery|it)('s| is) (free|included)|\bfree delivery\b|\bthat'?s included\b/i.test(text)) problems.push("says something is free");
   if (/\b(don'?t|do not|never|can'?t) (deliver|drop)\b[^.?!]*\b(weekend|saturday|sunday)|\b(saturday|sunday|weekend)'?s? (is )?not an option/i.test(text)) problems.push("rules out delivery days");
   // The 6 and 8 yard overweight fee is one flat $85, not per ton (grader, 2026-10-22).
-  if (/\$\s?85\b[^.?!]*(\bper ton\b|\ba ton\b|\beach ton\b|\/\s?ton\b)|(\bper ton\b|\ba ton\b|\beach ton\b)[^.?!]*\$\s?85\b/i.test(text)) problems.push("states the $85 fee as per ton (it is flat)");
+  if (/\$\s?85\b[^.?!]*(\bper ton\b|\ba ton\b|\beach ton\b|\/\s?ton\b)|(\bper ton\b|\ba ton\b|\beach ton\b)[^.?!]*\$\s?85\b/i.test(text) && !/\bnot (per|a|each) ton\b/i.test(text)) problems.push("states the $85 fee as per ton (it is flat)");
   // A booking by text can't be changed by text: the office calls (finding #1, 2026-11-04).
   if (/\b(updated|changed|switched|moved) (the |your )?(address|booking|order|size|delivery)|\b(address|booking|order|size|delivery)('s| is| has been| was) (now )?(updated|changed|switched|moved)\b/i.test(text)) problems.push("says the booking was changed");
   if (/\bI(?:'m| am) (?:a )?(?:real )?(?:human|person)\b/i.test(text)) problems.push("denies being an AI");
   if (c.mustAdmitAi && !/\bAI\b/.test(text)) problems.push("doesn't admit it is an AI");
+  // Sam Fairchild, 2026-11-03: told "you're all set" and "that locks in your
+  // booking" when his signature hadn't counted. Asking them to sign "and
+  // you're all set" is fine.
+  if (c.unsigned && /\b(you'?re|you are|we'?re|that'?s|it'?s) (all )?(set|good to go|locked in|done)\b|\blocks? (in|it in|that in) (your|the) booking\b|\b(booking|it)('s| is) locked in\b/i.test(text) && !/\bfull name\b/i.test(text)) {
+    problems.push("says they're set before signing");
+  }
   if (c.mustHandToOffice && !/\boffice\b/i.test(text)) problems.push("doesn't hand them to the office");
   if (c.noPrices && /\$\s?\d/.test(text)) problems.push("states a price in a lead-in");
   if (/card number|expiration|cvv/i.test(text) && /(send|text|give|share|type).{0,30}(card|number)/i.test(text) && !/(don'?t|do not|never|not).{0,40}(card|number)/i.test(text)) {

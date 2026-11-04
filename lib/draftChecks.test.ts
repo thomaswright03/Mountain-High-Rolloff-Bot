@@ -15,6 +15,8 @@ test("links, template markers, unapproved amounts, date promises, 'booked' claim
   assert.ok(gradeDraft("goes $85 extra per ton over that").includes("states the $85 fee as per ton (it is flat)"));
   assert.ok(gradeDraft("it's $85 flat per ton over that").includes("states the $85 fee as per ton (it is flat)"));
   assert.deepEqual(gradeDraft("over 1 ton it's a flat $85 extra"), []);
+  // Live Model check, 2026-11-04: the right answer was failed.
+  assert.deepEqual(gradeDraft("go over that and it's a flat $85 extra, not per ton."), []);
   assert.ok(gradeDraft("we'll deliver it Saturday morning").includes("promises a delivery date"));
   assert.ok(gradeDraft("you're booked for the 20 yard").includes("says it is booked"));
   assert.ok(gradeDraft("I'm a real person here").includes("denies being an AI"));
@@ -36,4 +38,12 @@ test("a draft that says the booking or address was changed is caught; handing to
   assert.deepEqual(gradeDraft("sweet, here's everything", { ...c, mustHandToOffice: false }), []);
   assert.ok(gradeDraft("sure thing, it's $400", c).includes("doesn't hand them to the office"));
   assert.ok(gradeDraft("sure thing, it's $400", c).includes("states a price in a lead-in"));
+});
+
+test("before a booking is signed, the draft can't say they're set or locked in (Sam Fairchild, 2026-11-03)", () => {
+  const c = { name: "", message: "", unsigned: true };
+  assert.ok(gradeDraft("perfect, you're all set Samuel! office will give you a call before delivery", c).includes("says they're set before signing"));
+  assert.ok(gradeDraft("got it, thanks Samuel! that locks in your booking", c).includes("says they're set before signing"));
+  assert.deepEqual(gradeDraft("yep just need it here too. go ahead and reply with your full name and you're all set :)", c), []);
+  assert.deepEqual(gradeDraft("no worries, glad you're all set!"), []);
 });

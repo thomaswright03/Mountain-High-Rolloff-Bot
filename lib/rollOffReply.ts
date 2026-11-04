@@ -242,7 +242,8 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   // booked", a card request or a link means nothing is sent and the office
   // takes the lead (grader, 2026-11-04). The code-owned summary isn't
   // checked: its prices and wording come from config.
-  const problems = gradeDraft(rawDraft);
+  const bookingUnderway = mode.kind === "summary_next" || (mode.kind === "gathering" && mode.summarySent);
+  const problems = gradeDraft(rawDraft, { name: "", message: "", unsigned: bookingUnderway });
   await recordDraftCheck("reply", contactId, problems);
   if (problems.length > 0) {
     logEvent({ event: "rolloff_draft_held", contactId, draft: rawDraft, problems, dryRun });
