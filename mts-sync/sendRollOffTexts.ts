@@ -25,6 +25,9 @@ import {
   ROLLOFF_FOLLOWUP_2_TAG,
   ROLLOFF_PROCESSING_TAG,
   RESIDENTIAL_TAG,
+  NEEDS_HUMAN_TAG,
+  OPTED_OUT_TAG,
+  TARGET_COMPANY,
   bookingCheckSince,
   isOutsideServiceStates,
   contractsSince,
@@ -50,9 +53,6 @@ import { leadLandedAt } from "../lib/rollOffIntake.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
 import { errorMessage } from "../lib/errors.js";
 
-const TARGET_COMPANY = "Mountain High Disposal";
-const NEEDS_HUMAN_TAG = "ai-needs-human";
-const OPTED_OUT_TAG = "ai-opted-out";
 const SEND_DELAY_MS = 1500; // small pause between real sends, avoids bursting
 // Same blast-radius idea as Kaizen's sendOutreach.ts PACED_SEND_CAP.
 const PACED_SEND_CAP = 100;
@@ -157,17 +157,20 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
     return "skipped";
   }
 
-  // Notes survive a re-import that could drop tags — backstop for the sent tag.
+  // Notes survive a re-import that could drop tags — backstop for the sent
+  // tag. Only a cold open sent for this booking attempt counts: a returning
+  // lead's new pick-up note starts the texts over (importRollOffLeads.ts).
   const notes = await getNotes(contactId);
-  const coldOpenNoted = notes.some((n) => n.body.startsWith(AI_ROLLOFF_COLD_OPEN_NOTE_MARKER));
+  const landedAt = leadLandedAt(contact.dateAdded, notes);
+  const attemptStart = Date.parse(landedAt ?? "") || 0;
+  const coldOpenNoted = notes.some((n) => n.body.startsWith(AI_ROLLOFF_COLD_OPEN_NOTE_MARKER) && !(Date.parse(n.dateAdded) < attemptStart));
   const coldOpenSent = tags.includes(ROLLOFF_COLD_OPEN_SENT_TAG) || coldOpenNoted;
   if (coldOpenNoted && !tags.includes(ROLLOFF_COLD_OPEN_SENT_TAG) && !dryRun) {
     await addTag(contactId, ROLLOFF_COLD_OPEN_SENT_TAG);
   }
 
-  // When this booking attempt started: the pick-up note's time
-  // (importRollOffLeads.ts), since an existing contact's dateAdded is old.
-  const landedAt = leadLandedAt(contact.dateAdded, notes);
+  // landedAt (above) is when this booking attempt started: the pick-up
+  // note's time, since an existing contact's dateAdded is old.
   const plan = planRollOffText({ tags, coldOpenSent, history, now });
   if ("wait" in plan) {
     logEvent({ event: "rolloff_text_not_due", contactId, reason: plan.wait });

@@ -535,3 +535,32 @@ test("if signing can't be recorded at all, the lead is not marked signed and not
   assert.ok(!tagsOf("sam").includes("ai-rolloff-confirmed"));
   assert.equal(ghl.sentMessages.length, 0);
 });
+
+test("a different delivery address after the summary goes to the office, quoted, and is never confirmed", async () => {
+  const text = "actually it's going to my rental at 412 Oak St";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", text]]);
+  claude.bookingState = { ...FULL, delivery_address: "412 Oak St" };
+  claude.draft = "got it, the office will give you a quick call from a different number to book it at that address";
+  claude.handoff = false;
+  const state = await send("sam", "conv_sam", text);
+  assert.equal(state.body.action, "sent");
+  assert.equal(state.body.isHandoff, true);
+  assert.match(draftRequest()!.system, /different address than\s+the one on their booking/);
+  assert.ok(!draftRequest()!.system.includes("412 Oak"), "the lead's address stays out of the system prompt");
+  assert.match(JSON.stringify(draftRequest()!.messages), /412 Oak St/);
+  assert.ok(tagsOf("sam").includes("ai-needs-human"));
+  const note = ghl.notes.find((n) => n.contactId === "sam" && n.body.includes("different address"));
+  assert.ok(note, "the office is told");
+  assert.match(note!.body, /New address they gave: "412 Oak St"/);
+  assert.ok(!ghl.sentMessages.some((m) => m.message.includes("here's your roll-off booking")), "no summary for an address we can't book");
+});
+
+test("the address on file said a different way isn't treated as a new address", async () => {
+  const text = "yes call me first, it's at 12 elm street";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.bookingState = { ...FULL, delivery_address: "12 elm street" };
+  claude.draft = "sweet, here's everything";
+  await send("sam", "conv_sam", text);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), [`sweet, here's everything\n\n${SUMMARY}`]);
+  assert.ok(!tagsOf("sam").includes("ai-needs-human"));
+});

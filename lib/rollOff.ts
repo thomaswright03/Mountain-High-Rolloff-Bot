@@ -22,6 +22,13 @@ import type { ConversationTurn } from "./types.js";
 
 /** Set on a GHL contact by mts-sync/importRollOffLeads.ts (or by hand in
  * GHL). The only way into this flow. */
+/** The one brand this bot works for. */
+export const TARGET_COMPANY = "Mountain High Disposal";
+/** A person owns the thread: the bot never texts it again. Same tag as the
+ * residential bot's. */
+export const NEEDS_HUMAN_TAG = "ai-needs-human";
+export const OPTED_OUT_TAG = "ai-opted-out";
+
 export const ROLLOFF_ELIGIBLE_TAG = "ai-rolloff-eligible";
 export const ROLLOFF_PROCESSING_TAG = "ai-rolloff-processing";
 export const ROLLOFF_COLD_OPEN_SENT_TAG = "ai-rolloff-outreach-sent";

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
 import { startMockClaudeServer, type MockClaudeServer } from "../lib/testHelpers/mockClaudeServer.js";
 import { AI_ROLLOFF_COLD_OPEN_NOTE_MARKER } from "../lib/prompt.js";
+import { AI_ROLLOFF_LEAD_NOTE_MARKER } from "../lib/rollOffIntake.js";
 import type { MtsContractRow } from "../lib/rollOff.js";
 import { memoryFunnelBackend, setFunnelBackendForTests } from "../lib/funnelStore.js";
 
@@ -58,6 +59,8 @@ before(async () => {
       exhausted: base("exhausted", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent", "ai-rolloff-followup-1-sent", "ai-rolloff-followup-2-sent"] }),
       lead_replied: base("lead_replied", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] }),
       never_delivered: base("never_delivered", { tags: ["ai-rolloff-eligible", "ai-rolloff-outreach-sent"] }),
+      // Dripped 40 days ago; the importer just picked up a new booking attempt.
+      returning: base("returning", { dateAdded: ago(60 * 24 * 60) }),
     },
     conversationsByContact: {
       rep_texted: "conv_rep",
@@ -67,6 +70,7 @@ before(async () => {
       fu2_due: "conv_fu2_due",
       lead_replied: "conv_lead_replied",
       never_delivered: "conv_never_delivered",
+      returning: "conv_returning",
     },
     // Newest first, the way GHL returns them.
     conversationHistories: {
@@ -83,6 +87,7 @@ before(async () => {
         { direction: "outbound", body: "cold open", dateAdded: ago(60 * 27) },
       ],
       conv_never_delivered: [{ direction: "outbound", body: "cold open", dateAdded: ago(60 * 25), status: "failed" }],
+      conv_returning: [{ direction: "outbound", body: "last follow-up", dateAdded: ago(60 * 24 * 33) }],
     },
   });
   claude = await startMockClaudeServer();
@@ -236,6 +241,14 @@ test("the cold-open note stands in for a lost sent tag, so the cold open is neve
   assert.equal(await processEntry({ contactId: "noted_not_tagged" }, live()), "sent");
   assert.ok(tagsOf("noted_not_tagged").includes("ai-rolloff-outreach-sent"), "tag restored from the note");
   assert.ok(tagsOf("noted_not_tagged").includes("ai-rolloff-followup-1-sent"), "and it's follow-up 1 that went out");
+});
+
+test("a returning lead's new booking attempt gets a fresh cold open, whatever the old notes say", async () => {
+  ghl.notes.push({ contactId: "returning", body: `${AI_ROLLOFF_COLD_OPEN_NOTE_MARKER} {}`, dateAdded: ago(60 * 24 * 40) });
+  ghl.notes.push({ contactId: "returning", body: `${AI_ROLLOFF_LEAD_NOTE_MARKER} started a roll-off booking online (MTS roll-off lead 777, dated 2026-10-10).`, dateAdded: ago(10) });
+  assert.equal(await processEntry({ contactId: "returning" }, live()), "sent");
+  assert.ok(tagsOf("returning").includes("ai-rolloff-outreach-sent"));
+  assert.match(ghl.sentMessages[0]!.message, /started booking a roll-off dumpster/);
 });
 
 test("follow-ups wait their turn: not before 24h, and never while the lead's text is unanswered", async () => {

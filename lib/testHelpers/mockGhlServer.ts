@@ -7,7 +7,7 @@ export interface MockGhlServer {
   sentEmails: Array<{ contactId: string; subject: string; html: string }>;
   taggedContacts: Array<{ contactId: string; tag: string }>;
   removedTags: Array<{ contactId: string; tag: string }>;
-  notes: Array<{ contactId: string; body: string }>;
+  notes: Array<{ contactId: string; body: string; dateAdded?: string }>;
   starredConversations: string[];
   readConversations: string[];
   /** Every /contacts/upsert body, in order. */
@@ -33,7 +33,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
   const sentEmails: Array<{ contactId: string; subject: string; html: string }> = [];
   const taggedContacts: Array<{ contactId: string; tag: string }> = [];
   const removedTags: Array<{ contactId: string; tag: string }> = [];
-  const notes: Array<{ contactId: string; body: string }> = [];
+  const notes: Array<{ contactId: string; body: string; dateAdded?: string }> = [];
   const starredConversations: string[] = [];
   const readConversations: string[] = [];
   const upserts: Array<Record<string, any>> = [];
@@ -68,8 +68,10 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
       }
 
       if (method === "GET" && url.startsWith("/contacts/search/duplicate")) {
-        const email = new URL(url, "http://localhost").searchParams.get("email");
-        const id = Object.keys(fixtures.contacts).find((k) => email && fixtures.contacts[k]!.email === email);
+        const params = new URL(url, "http://localhost").searchParams;
+        const email = params.get("email");
+        const number = params.get("number");
+        const id = Object.keys(fixtures.contacts).find((k) => (email && fixtures.contacts[k]!.email === email) || (number && fixtures.contacts[k]!.phone === number));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ contact: id ? { id, ...fixtures.contacts[id] } : null }));
         return;
@@ -146,7 +148,7 @@ export function startMockGhlServer(fixtures: MockGhlFixtures): Promise<MockGhlSe
       if (method === "GET" && noteMatch) {
         const contactNotes = notes
           .filter((n) => n.contactId === noteMatch[1])
-          .map((n, i) => ({ id: `note_${i}`, body: n.body, dateAdded: new Date(Date.now() + i).toISOString() }));
+          .map((n, i) => ({ id: `note_${i}`, body: n.body, dateAdded: n.dateAdded ?? new Date(Date.now() + i).toISOString() }));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ notes: contactNotes }));
         return;

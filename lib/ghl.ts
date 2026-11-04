@@ -205,6 +205,16 @@ export async function findContactIdByEmail(locationId: string, email: string): P
   return data?.contact?.id ?? undefined;
 }
 
+/** The contact GHL already has with this phone number, if any. Read only,
+ * so the importer can decide what it may write before writing anything. */
+export async function findContactByPhone(locationId: string, phone: string): Promise<Record<string, any> | undefined> {
+  const qs = new URLSearchParams({ locationId, number: phone });
+  const res = await ghlFetch(`${baseUrl()}/contacts/search/duplicate?${qs}`, { headers: headers() });
+  if (!res.ok) throw new Error(`findContactByPhone failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as { contact?: Record<string, any> | null } | null;
+  return data?.contact?.id ? data.contact : undefined;
+}
+
 /** Creates the contact, or updates the one GHL already has for this
  * phone/email. Never sends tags: GHL's upsert replaces a contact's tags
  * rather than adding to them (confirmed live 2026-07-29 in the Kaizen

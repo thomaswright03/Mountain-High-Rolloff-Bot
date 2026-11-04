@@ -3,7 +3,7 @@ import { findCompany } from "./companies.js";
 import { evaluateInbound } from "./safety.js";
 import { buildHandoffCheckPrompt, formatHistory } from "./prompt.js";
 import { buildRollOffReplyPrompt, type ReplyMode } from "./rollOffPrompt.js";
-import { isOutsideServiceStates, rejectTemplateMarkers } from "./rollOff.js";
+import { NEEDS_HUMAN_TAG, OPTED_OUT_TAG, isOutsideServiceStates, rejectTemplateMarkers } from "./rollOff.js";
 import {
   AI_ROLLOFF_BOOKING_NOTE_MARKER,
   EMPTY_BOOKING,
@@ -15,6 +15,7 @@ import {
   buildOfficeNote,
   buildSignedReply,
   contactOnFile,
+  isDifferentAddress,
   isSignature,
   latestSummary,
   looksLikeAName,
@@ -34,7 +35,6 @@ import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
 import { errorMessage } from "./errors.js";
 
-const NEEDS_HUMAN_TAG = "ai-needs-human";
 
 export interface RollOffReplyResult {
   action: string;
@@ -118,7 +118,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   logEvent({ event: "rolloff_safety_verdict", contactId, company: company.displayName, verdict });
 
   if (verdict.action === "opt_out") {
-    await writeToContact(contactId, "ai-opted-out", `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
+    await writeToContact(contactId, OPTED_OUT_TAG, `AI marked opted-out (roll-off): ${verdict.reason}. Lead said: "${inbound.body}"`);
     if (conversationId && !isDryRun()) {
       try {
         await markConversationRead(conversationId);
@@ -199,11 +199,17 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
         rollOff
       );
   const complete = state.wantsToBook && missingAnswers(state).length === 0;
+  // A booking by text is only ever written for the address on file, so a
+  // different delivery address goes to the office, quoted in the note, and
+  // the lead is never told the change is made (grader, 2026-11-04).
+  const newAddress = !alreadySigned && state.deliveryAddress && isDifferentAddress(state.deliveryAddress, onFile) ? state.deliveryAddress : null;
 
   let summary: string | null = null;
   let mode: ReplyMode;
   if (alreadySigned) {
     mode = { kind: "signed_already" };
+  } else if (newAddress) {
+    mode = { kind: "new_address" };
   } else if (complete && onFile) {
     const fresh = buildBookingSummary(company, onFile, state);
     // The same summary is already waiting on their signature: answer
@@ -225,6 +231,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     first_name: safeFirstName(contact.firstName) ?? null,
     service_address: hasFullAddress ? `${contact.address1}, ${contact.city}, ${contact.state} ${contact.postalCode}` : null,
     ...(mode.kind === "gathering" && mode.nameMismatch ? { name_on_booking: `${onFile!.firstName} ${onFile!.lastName}` } : {}),
+    ...(newAddress ? { new_delivery_address: newAddress } : {}),
   });
 
   const rawDraft = rejectTemplateMarkers(await draftReply(buildRollOffReplyPrompt(company, rollOff, isFirstReply, mode), formatHistory(history), leadDetails));
@@ -233,7 +240,7 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   // "the office will call you" (or that ends the conversation) means the
   // office owns it from here. A summary is the booking working, never a
   // hand-off.
-  const isHandoff = mode.kind === "office_finishes" ? true : summary ? false : await detectHandoff(buildHandoffCheckPrompt(), draft);
+  const isHandoff = mode.kind === "office_finishes" || mode.kind === "new_address" ? true : summary ? false : await detectHandoff(buildHandoffCheckPrompt(), draft);
 
   logEvent({ event: "rolloff_draft", contactId, draft, isFirstReply, mode: mode.kind, bookingState: state, isHandoff, dryRun: process.env.DRY_RUN });
 
@@ -252,7 +259,9 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
     await handToOffice(
       contactId,
       conversationId,
-      mode.kind === "office_finishes"
+      mode.kind === "new_address"
+        ? `AI handed this roll-off lead to the office: they want the dumpster delivered to a different address than the one on file. New address they gave: "${newAddress}". On file: ${hasFullAddress ? `${contact.address1}, ${contact.city}, ${contact.state} ${contact.postalCode}` : "(incomplete)"}. Please check the new address is in our service area (not Loveland), then call them to book it there. Booking so far: ${state.yards ?? "?"} yard, ${state.customerType ?? "?"}, placement "${state.placement ?? "?"}". Lead said: "${inbound.body}"`
+        : mode.kind === "office_finishes"
         ? `AI handed this roll-off lead to the office: they gave every booking answer (${state.yards} yard, ${state.customerType}, placement "${state.placement}", call before delivery: ${state.callBeforeDelivery ? "yes" : "no"}), but their name, phone or address on file is incomplete so a contract can't be made by text. Please call them to finish booking. Lead said: "${inbound.body}"`
         : `AI handed this roll-off lead to the office. Read the thread: if they still want a dumpster, call them to finish booking (size, placement, card). AI's last text: "${draft}" Lead said: "${inbound.body}"`
     );
