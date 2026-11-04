@@ -1,5 +1,5 @@
 import type { CompanyConfig, InboundMessage } from "./types.js";
-import { findCompany } from "./companies.js";
+import { bookingEmailFor, findCompany } from "./companies.js";
 import { evaluateInbound } from "./safety.js";
 import { buildHandoffCheckPrompt, formatHistory } from "./prompt.js";
 import { buildRollOffReplyPrompt, type ReplyMode } from "./rollOffPrompt.js";
@@ -340,8 +340,9 @@ async function recordSignature(input: {
   const reply = buildSignedReply(safeFirstName(onFile.firstName), answers.yards!);
   logEvent({ event: "rolloff_signed", contactId, draft: reply, payload, dryRun });
   if (dryRun) {
-    const email = company.rollOff.bookingEmail ? buildBookingEmail(company, payload, ghlContactUrl(input.inbound.locationId, contactId)) : null;
-    logEvent({ event: "rolloff_booking_email_dry_run", contactId, to: company.rollOff.bookingEmail, subject: email?.subject });
+    const { to } = bookingEmailFor(company);
+    const email = to ? buildBookingEmail(company, payload, ghlContactUrl(input.inbound.locationId, contactId)) : null;
+    logEvent({ event: "rolloff_booking_email_dry_run", contactId, to, subject: email?.subject });
     return { action: "dry_run", draft: reply, signed: true };
   }
 
@@ -356,7 +357,7 @@ async function recordSignature(input: {
   try {
     await withRetries(() => writeSigningRecords(contactId, conversationId, payload));
   } catch (err: unknown) {
-    await recordHeartbeat("booking-signed", false, `the last signing could not be fully recorded in GHL: ${errorMessage(err)}`);
+    await recordHeartbeat("booking-signed", false, "the last signing couldn't be fully saved in GoHighLevel, so the lead wasn't marked signed or texted. Check their thread");
     throw err;
   }
   await recordHeartbeat("booking-signed", true, "the last signing was tagged, noted and starred for the office");
@@ -401,7 +402,7 @@ function ghlContactUrl(locationId: string, contactId: string): string {
  * the booking is already tagged, noted and starred, so a failed email only
  * adds a note saying so. */
 async function emailBooking(company: CompanyConfig, payload: RollOffBookingPayload, contactId: string, locationId: string): Promise<void> {
-  const to = company.rollOff.bookingEmail;
+  const { to } = bookingEmailFor(company);
   if (!to) {
     logEvent({ event: "rolloff_booking_email_not_configured", contactId });
     return;
@@ -417,7 +418,7 @@ async function emailBooking(company: CompanyConfig, payload: RollOffBookingPaylo
     await recordHeartbeat("booking-email", true, `the last booking was emailed to ${to}`);
   } catch (err: unknown) {
     logEvent({ event: "rolloff_booking_email_failed", contactId, error: errorMessage(err) });
-    await recordHeartbeat("booking-email", false, `the last booking email to ${to} failed: ${errorMessage(err)}`);
+    await recordHeartbeat("booking-email", false, `the last booking email to ${to} didn't go out. The booking note and star are in GoHighLevel`);
     try {
       await addNote(contactId, `AI couldn't email this roll-off booking to ${to} (${errorMessage(err)}). Everything the office needs is in the note above.`);
     } catch {

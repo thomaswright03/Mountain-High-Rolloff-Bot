@@ -312,3 +312,39 @@ test("a follow-up that fails a safety check is never sent: the office gets the l
   assert.ok(ghl.notes.some((n) => n.contactId === "fu1_due" && /held it back.*unapproved amount \$350/.test(n.body)));
   assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/held/")));
 });
+
+test("a lead text that has waited past 15 minutes is reported as unanswered; ours waiting on them is not", async () => {
+  const unanswered: string[] = [];
+  await processEntry({ contactId: "lead_replied" }, live({ unanswered }));
+  await processEntry({ contactId: "fu1_not_due" }, live({ unanswered }));
+  assert.deepEqual(unanswered, ["lead_replied"]);
+  process.env.DRY_RUN = "true";
+  const dry: string[] = [];
+  await processEntry({ contactId: "lead_replied" }, live({ unanswered: dry }));
+  assert.deepEqual(dry, [], "test mode never answers, so it isn't counted");
+});
+
+test("texts parked during a pause: a recent one goes through the reply flow, an old one to the office, and both are cleared", async () => {
+  const { memoryParkedBackend, setParkedBackendForTests } = await import("../lib/parkedReplies.js");
+  const { memoryLockBackend, setLockBackendForTests } = await import("../lib/replyLock.js");
+  const { drainParkedReplies } = await import("./sendRollOffTexts.js");
+  const parked = memoryParkedBackend();
+  setParkedBackendForTests(parked);
+  setLockBackendForTests(memoryLockBackend());
+  try {
+    parked.files.set("lead_replied", JSON.stringify({ contactId: "lead_replied", conversationId: "conv_lead_replied", locationId: "test-location", body: "what sizes do you have?", receivedAt: ago(60) }));
+    parked.files.set("fu1_due", JSON.stringify({ contactId: "fu1_due", locationId: "test-location", body: "yes still need one", receivedAt: ago(60 * 20) }));
+    const result = await drainParkedReplies(NOW);
+    assert.deepEqual(result, { answered: 1, handedOff: 1 });
+    assert.equal(parked.files.size, 0);
+    assert.ok(tagsOf("fu1_due").includes("ai-needs-human"));
+    assert.ok(ghl.notes.some((n) => n.contactId === "fu1_due" && /texted while the bot was paused.*yes still need one/.test(n.body)));
+    process.env.DRY_RUN = "true";
+    parked.files.set("fu1_due", "{}");
+    assert.deepEqual(await drainParkedReplies(NOW), { answered: 0, handedOff: 0 });
+    assert.equal(parked.files.size, 1, "test mode leaves parked texts for when the bot is live");
+  } finally {
+    setParkedBackendForTests(null);
+    setLockBackendForTests(null);
+  }
+});

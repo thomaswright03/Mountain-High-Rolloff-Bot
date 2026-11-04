@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
 import { dashboardPassword, isSignedIn, passwordMatches, sessionCookie, signedOutCookie } from "../lib/dashboardAuth.js";
-import { escapeHtml } from "../lib/contract.js";
+import { escapeHtml } from "../lib/html.js";
 import { findCompany } from "../lib/companies.js";
 import { logEvent } from "../lib/logging.js";
 import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";

@@ -3,7 +3,7 @@ import { randomBytes, timingSafeEqual, createHash } from "node:crypto";
 import { dashboardPassword, isSignedIn, passwordMatches, sessionCookie } from "../lib/dashboardAuth.js";
 import { collectStatus, toJson, type AdminStatus, type Status } from "../lib/adminStatus.js";
 import { LATEST_UPDATES } from "../lib/latestUpdate.js";
-import { escapeHtml } from "../lib/contract.js";
+import { escapeHtml } from "../lib/html.js";
 import { logEvent } from "../lib/logging.js";
 import { findCompany } from "../lib/companies.js";
 import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";

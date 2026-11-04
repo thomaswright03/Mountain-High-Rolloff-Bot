@@ -1,5 +1,4 @@
 import { put, list } from "@vercel/blob";
-import { contractsFolder } from "./contractStore.js";
 import { logEvent } from "./logging.js";
 import { errorMessage } from "./errors.js";
 
@@ -13,7 +12,6 @@ import { errorMessage } from "./errors.js";
 //   funnel/contract-sent/{contractId}.json  the contract link was texted to them (before 2026-10-21)
 //   funnel/summary-sent/{contactId}.json    the booking summary was texted to them
 //   funnel/signed/{contactId}.json          they signed it by texting their name
-//   {contracts folder}/{id}/signed.json    they signed a linked contract (before 2026-10-21)
 //
 // The funnel files are written once per lead (the first one wins), and
 // only for real texts: under DRY_RUN nothing is recorded, so test runs
@@ -118,15 +116,15 @@ export interface FunnelActivity {
   contractsSigned: Date[];
 }
 
-/** When each thing happened, from the store's file list. Two list calls,
+/** When each thing happened, from the store's file list. One list call,
  * however many days the dashboard shows. */
 export async function loadFunnelActivity(): Promise<FunnelActivity> {
-  const [funnel, contracts] = await Promise.all([backend.list(`${FUNNEL_FOLDER}/`), backend.list(`${contractsFolder()}/`)]);
+  const funnel = await backend.list(`${FUNNEL_FOLDER}/`);
   const at = (files: BlobListing[], test: (path: string) => boolean) => files.filter((f) => test(f.pathname)).map((f) => f.uploadedAt);
   return {
     reached: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/reached/`)),
     responded: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/responded/`)),
     contractsSent: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/contract-sent/`) || p.startsWith(`${FUNNEL_FOLDER}/summary-sent/`)),
-    contractsSigned: [...at(contracts, (p) => p.endsWith("/signed.json")), ...at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/signed/`))],
+    contractsSigned: at(funnel, (p) => p.startsWith(`${FUNNEL_FOLDER}/signed/`)),
   };
 }

@@ -1,7 +1,7 @@
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { memoryStatusBackend, setStatusBackendForTests, recordHeartbeat } from "../lib/runStatus.js";
-import { memoryPendingBackend, setPendingBackendForTests } from "../lib/pendingNotices.js";
+import { memoryParkedBackend, setParkedBackendForTests } from "../lib/parkedReplies.js";
 import { buildStatus, type StatusInputs } from "../lib/adminStatus.js";
 
 const PASSWORD = "correct horse battery";
@@ -12,7 +12,7 @@ before(async () => {
 });
 after(() => {
   setStatusBackendForTests(null);
-  setPendingBackendForTests(null);
+  setParkedBackendForTests(null);
 });
 beforeEach(() => {
   process.env.DASHBOARD_PASSWORD = PASSWORD;
@@ -22,7 +22,7 @@ beforeEach(() => {
   delete process.env.BLOB_READ_WRITE_TOKEN;
   process.env.DRY_RUN = "true";
   setStatusBackendForTests(memoryStatusBackend());
-  setPendingBackendForTests(memoryPendingBackend());
+  setParkedBackendForTests(memoryParkedBackend());
 });
 
 async function call(method: string, opts: { query?: Record<string, string>; headers?: Record<string, string>; body?: unknown } = {}) {
@@ -61,7 +61,7 @@ test("signed in, /admin shows the three groups in order, the rows, and the Lates
   const html: string = r.body;
   const at = (s: string) => html.indexOf(s);
   assert.ok(at("<h2>Important</h2>") > 0 && at("<h2>Important</h2>") < at("<h2>Key</h2>") && at("<h2>Key</h2>") < at("<h2>Basic</h2>") && at("<h2>Basic</h2>") < at("Latest Update"));
-  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Manual contract signing page", "Contact system (GoHighLevel)", "AI replies (Claude)", "MTS sign-in", "Record storage", "Scheduled job", "Kill switch", "Deployed version"]) {
+  for (const name of ["Lead pick-up from MTS", "Scheduled texts", "Replies answered", "Bookings signed by text", "Booking email to the office", "Texts waiting from a pause", "Reply quality", "Contact system (GoHighLevel)", "AI replies (Claude)", "MTS sign-in", "Saved records", "Scheduled job", "Kill switch", "Deployed version"]) {
     assert.ok(html.includes(name), name);
   }
   assert.ok(at("Frontend changes") > at("Latest Update") && at("Frontend changes") < at("Other changes"));
@@ -99,12 +99,13 @@ function inputs(over: Partial<StatusInputs> = {}): StatusInputs {
   const beat = (minAgo: number, ok = true) => ({ name: "x", ok, lastRun: new Date(now.getTime() - minAgo * 60_000).toISOString(), lastSuccess: new Date(now.getTime() - minAgo * 60_000).toISOString(), detail: "fine" });
   return {
     now,
-    env: { DRY_RUN: "true", CONTRACT_SIGNING_SECRET: "s", PUBLIC_BASE_URL: "https://x", BLOB_READ_WRITE_TOKEN: "t", KILLSWITCH_URL: "https://flag" },
+    env: { DRY_RUN: "true", BLOB_READ_WRITE_TOKEN: "t", KILLSWITCH_URL: "https://flag", ROLLOFF_BOOKING_EMAIL: "office@example.com" },
     beats: { "rolloff-import": beat(5), "rolloff-send": beat(5), replies: beat(600), claude: beat(60), "mts-login": beat(5) },
     blob: { ok: true, detail: "answers" },
     ghl: { status: "OK", detail: "ok" },
     killswitch: { active: true },
-    pending: { count: 0, oldest: null },
+    parked: 0,
+    quality: { checked: 10, held: 0 },
     ...over,
   };
 }
@@ -121,24 +122,57 @@ test("everything healthy is OK; stale or missing is never OK", () => {
   assert.notEqual(none.overall, "OK");
 });
 
-test("a signed contract still waiting for the office is a visible warning; a paused switch is shown", () => {
-  const s = buildStatus(inputs({ pending: { count: 2, oldest: "2026-10-20T10:00:00Z" }, killswitch: { active: false } }));
-  const signable = s.functions.find((f) => f.name === "Manual contract signing page")!;
-  assert.equal(signable.status, "Warning");
-  assert.match(signable.detail, /2 signed contract/);
+test("texts parked during a pause are a visible warning; a paused switch is shown", () => {
+  const s = buildStatus(inputs({ parked: 2, killswitch: { active: false } }));
+  const parked = s.functions.find((f) => f.name === "Texts waiting from a pause")!;
+  assert.equal(parked.status, "Warning");
+  assert.match(parked.detail, /^2 lead text/);
   assert.match(s.functions.find((f) => f.name === "Kill switch")!.detail, /PAUSED/);
-  const missing = buildStatus(inputs({ env: { DRY_RUN: "true" } }));
-  assert.equal(missing.functions.find((f) => f.name === "Manual contract signing page")!.status, "Unknown");
+  assert.equal(buildStatus(inputs({ parked: null })).functions.find((f) => f.name === "Texts waiting from a pause")!.status, "Warning");
 });
 
-test("booking by text and its email have their own rows; failures show Down; missing link-signing secrets don't take overall down", () => {
+test("a lead text left unanswered makes Replies answered Down, even when the last webhook call worked", () => {
+  const base = inputs();
+  const t = base.now.toISOString();
+  const s = buildStatus(inputs({ beats: { ...base.beats, "replies-unanswered": { name: "replies-unanswered", ok: false, lastRun: t, lastSuccess: null, detail: "2 lead text(s) have waited more than 15 minutes", count: 2 } } }));
+  const row = s.functions.find((f) => f.name === "Replies answered")!;
+  assert.equal(row.status, "Down");
+  assert.match(row.detail, /waited more than 15 minutes/);
+  assert.equal(s.overall, "Down");
+  const fine = buildStatus(inputs({ beats: { ...base.beats, "replies-unanswered": { name: "replies-unanswered", ok: true, lastRun: t, lastSuccess: t, detail: "none waiting", count: 0 } } }));
+  assert.equal(fine.functions.find((f) => f.name === "Replies answered")!.status, "OK");
+});
+
+test("the booking email row warns while the address is a stand-in, and names the team address once set", () => {
+  const stand = buildStatus(inputs({ env: { DRY_RUN: "true", KILLSWITCH_URL: "https://flag", BLOB_READ_WRITE_TOKEN: "t" } }));
+  const row = stand.functions.find((f) => f.name === "Booking email to the office")!;
+  assert.equal(row.status, "Warning");
+  assert.match(row.detail, /a stand-in, not Mountain High's customer team/);
+  const team = buildStatus(inputs()).functions.find((f) => f.name === "Booking email to the office")!;
+  assert.match(team.detail, /emailed to office@example.com/);
+});
+
+test("reply quality shows how many AI texts passed, and warns when many were held back", () => {
+  const ok = buildStatus(inputs({ quality: { checked: 40, held: 1 } })).functions.find((f) => f.name === "Reply quality")!;
+  assert.equal(ok.status, "OK");
+  assert.match(ok.detail, /^39 of 40 AI-written texts/);
+  assert.equal(buildStatus(inputs({ quality: { checked: 10, held: 3 } })).functions.find((f) => f.name === "Reply quality")!.status, "Warning");
+  assert.equal(buildStatus(inputs({ quality: { checked: 0, held: 0 } })).overall, "OK", "a quiet week isn't a fault");
+});
+
+test("no row on /admin shows a setting name or a raw error", () => {
+  const s = buildStatus(inputs({ env: { DRY_RUN: "true" }, blob: { ok: false, detail: "x" } }));
+  for (const f of s.functions) assert.doesNotMatch(f.detail, /[A-Z]{3,}_[A-Z_]+|Blob|Vercel|\b40[13]\b/, f.name);
+});
+
+test("booking by text and its email have their own rows; failures show Down", () => {
   const base = inputs();
   const beat = (ok: boolean, detail: string) => ({ name: "x", ok, lastRun: "2026-10-20T17:50:00Z", lastSuccess: ok ? "2026-10-20T17:50:00Z" : null, detail });
   const bad = buildStatus(inputs({ beats: { ...base.beats, "booking-email": beat(false, "email down"), "booking-signed": beat(false, "note failed") } }));
   assert.equal(bad.functions.find((f) => f.name === "Booking email to the office")!.status, "Down");
   assert.equal(bad.functions.find((f) => f.name === "Bookings signed by text")!.status, "Down");
   assert.equal(bad.overall, "Down");
-  const good = buildStatus(inputs({ env: { DRY_RUN: "true", KILLSWITCH_URL: "https://flag", BLOB_READ_WRITE_TOKEN: "t" }, beats: { ...base.beats, "booking-email": beat(true, "sent"), "booking-signed": beat(true, "signed") } }));
+  const good = buildStatus(inputs({ beats: { ...base.beats, "booking-email": beat(true, "sent"), "booking-signed": beat(true, "signed") } }));
   assert.equal(good.functions.find((f) => f.name === "Bookings signed by text")!.status, "OK");
   assert.equal(good.functions.find((f) => f.name === "Booking email to the office")!.status, "OK");
   assert.notEqual(good.overall, "Down");
@@ -199,7 +233,7 @@ test("contacts stuck mid-send show as a Warning with a count; an import that rea
 
 test("every page links the Mountain High icon, and the icon files exist", async () => {
   const { readFileSync, existsSync } = await import("node:fs");
-  for (const f of ["api/admin.ts", "api/dashboard.ts", "api/contract.ts"]) {
+  for (const f of ["api/admin.ts", "api/dashboard.ts", "api/notFound.ts"]) {
     const src = readFileSync(f, "utf8");
     assert.match(src, /rel="icon" type="image\/svg\+xml" href="\/favicon.svg"/, f);
     assert.match(src, /rel="apple-touch-icon" href="\/apple-touch-icon.png"/, f);

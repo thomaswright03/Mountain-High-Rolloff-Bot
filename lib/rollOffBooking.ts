@@ -1,6 +1,7 @@
 import type { CompanyConfig, ConversationTurn, RollOffConfig, RollOffSize } from "./types.js";
 import { TRANSCRIPT_FORMAT_NOTE } from "./prompt.js";
 import { stateCode } from "./rollOff.js";
+import { escapeHtml } from "./html.js";
 
 // Booking a roll-off in the text thread (Thomas, 2026-10-21: "we dont want
 // it to send a link. we want it to book the client right there"). Same
@@ -316,10 +317,6 @@ export function buildOfficeNote(p: RollOffBookingPayload): string {
     `Call Before Delivery: ${p.callBeforeDelivery ? "Yes" : "No"}`,
     `They agreed by text to every term on the Agreements list (the summary they signed is in the booking note).`,
   ].join("\n");
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /** The email the customer team gets for a signed booking (Thomas,

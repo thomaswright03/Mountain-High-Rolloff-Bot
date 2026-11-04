@@ -284,7 +284,8 @@ export async function run(): Promise<void> {
     try {
       await loginToMts(page);
     } catch (err: unknown) {
-      await recordHeartbeat("mts-login", false, String(errorMessage(err) ?? err));
+      logEvent({ event: "mts_login_failed", error: errorMessage(err) });
+      await recordHeartbeat("mts-login", false, "couldn't sign in to MTS. Check the bot's MTS email and password still work");
       throw err;
     }
     await recordHeartbeat("mts-login", true, "logged in");
@@ -317,7 +318,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
   run().catch(async (err) => {
     console.error(err);
-    await recordHeartbeat("rolloff-import", false, `crashed: ${errorMessage(err) ?? err}`);
+    await recordHeartbeat("rolloff-import", false, "stopped with an error before finishing (the GitHub run log has the details)");
     process.exit(1);
   });
 }

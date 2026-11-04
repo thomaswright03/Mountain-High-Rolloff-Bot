@@ -46,12 +46,13 @@ import { isServiceActive } from "../lib/killswitch.js";
 import { logEvent } from "../lib/logging.js";
 import { JOB_INTERVAL_MIN } from "../lib/adminStatus.js";
 import { recordHeartbeat } from "../lib/runStatus.js";
-import { retryPendingNotices } from "../lib/pendingNotices.js";
 import { loginToMts } from "./mtsLogin.js";
 import { checkMtsContractList } from "./mtsStatusCheck.js";
 import { leadLandedAt } from "../lib/rollOffIntake.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
 import { errorMessage } from "../lib/errors.js";
+import { answerInbound } from "../lib/inbound.js";
+import { listParkedReplies, removeParkedReply } from "../lib/parkedReplies.js";
 import { gradeDraft } from "../lib/draftChecks.js";
 import { recordDraftCheck } from "../lib/replyQuality.js";
 
@@ -107,7 +108,18 @@ export interface ProcessOptions {
   findContracts?: (phone: string) => Promise<MtsContractRow[]>;
   /** Overridable for tests only — see ROLLOFF_TCPA_CONSENT_CONFIRMED. */
   consentConfirmed?: boolean;
+  /** Collects contacts whose latest text has gone unanswered for longer
+   * than UNANSWERED_AFTER_MIN: the reply webhook should have answered it. */
+  unanswered?: string[];
 }
+
+/** A lead's text still unanswered after this long means the reply webhook
+ * isn't being called (or is failing): /admin shows it on "Replies
+ * answered" (grader, 2026-11-04). */
+export const UNANSWERED_AFTER_MIN = 15;
+/** A text parked while paused is answered when the bot runs again if it's
+ * newer than this; an older one goes to the office instead. */
+export const PARKED_ANSWER_HOURS = 12;
 
 /** Under DRY_RUN this never writes anything to GHL (no tags, no notes) —
  * it only logs what it would have done. */
@@ -174,6 +186,11 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   // landedAt (above) is when this booking attempt started: the pick-up
   // note's time, since an existing contact's dateAdded is old.
   const plan = planRollOffText({ tags, coldOpenSent, history, now });
+  const lastTurn = history[history.length - 1];
+  if (!dryRun && opts.unanswered && lastTurn?.direction === "inbound" && now.getTime() - Date.parse(lastTurn.dateAdded) > UNANSWERED_AFTER_MIN * 60_000) {
+    opts.unanswered.push(contactId);
+    logEvent({ event: "rolloff_reply_unanswered", contactId, since: lastTurn.dateAdded });
+  }
   if ("wait" in plan) {
     logEvent({ event: "rolloff_text_not_due", contactId, reason: plan.wait });
     return "skipped";
@@ -280,6 +297,35 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   }
 }
 
+/** Each text parked while the bot was paused: a recent one is answered as
+ * if it had just come in (the reply flow reads the whole thread, so it
+ * answers their latest text once); an older one goes to the office, since
+ * an AI answer that late reads oddly. Removed once handled. Nothing happens
+ * in test mode, so a parked text waits for the bot to go live. */
+export async function drainParkedReplies(now: Date = new Date()): Promise<{ answered: number; handedOff: number }> {
+  if (process.env.DRY_RUN === "true") return { answered: 0, handedOff: 0 };
+  let answered = 0;
+  let handedOff = 0;
+  for (const p of await listParkedReplies()) {
+    const hours = (now.getTime() - Date.parse(p.receivedAt)) / 3_600_000;
+    if (hours <= PARKED_ANSWER_HOURS) {
+      await answerInbound(p);
+      answered++;
+    } else {
+      const contact = await getContact(p.contactId);
+      const tags: string[] = (contact.tags ?? []).map((t: string) => t.toLowerCase());
+      if (tags.includes(ROLLOFF_ELIGIBLE_TAG) && !tags.includes(RESIDENTIAL_TAG) && !tags.includes(NEEDS_HUMAN_TAG) && !tags.includes(OPTED_OUT_TAG)) {
+        await addTag(p.contactId, NEEDS_HUMAN_TAG);
+        await addNote(p.contactId, `This roll-off lead texted while the bot was paused (${p.receivedAt}) and it's been more than ${PARKED_ANSWER_HOURS} hours, so the AI didn't answer. Please text or call them. They said: "${p.body}"`);
+        handedOff++;
+      }
+    }
+    await removeParkedReply(p.contactId);
+    logEvent({ event: "parked_reply_handled", contactId: p.contactId, hours: Math.round(hours) });
+  }
+  return { answered, handedOff };
+}
+
 /** contactIdOverride / `--contact-id=` processes exactly one contact —
  * manual/debug runs only. */
 /** A send run that dies mid-send leaves ROLLOFF_PROCESSING_TAG on the contact, and
@@ -317,19 +363,18 @@ export async function run(contactIdOverride?: string): Promise<void> {
     return;
   }
 
-  // A signed contract whose GHL note failed earlier is retried here, so the
-  // office still hears about it.
+  // Texts that came in while the bot was paused (lib/parkedReplies.ts).
   try {
-    const pending = await retryPendingNotices();
-    if (pending.delivered || pending.stillPending) console.log(`Contract notices: delivered ${pending.delivered}, still pending ${pending.stillPending}`);
+    const parked = await drainParkedReplies();
+    if (parked.answered || parked.handedOff) console.log(`Texts from while paused: answered ${parked.answered}, handed to the office ${parked.handedOff}`);
   } catch (err: unknown) {
-    logEvent({ event: "contract_notice_retry_crashed", error: errorMessage(err) });
+    logEvent({ event: "parked_replies_drain_failed", error: errorMessage(err) });
   }
 
   if (process.env.DRY_RUN !== "true") {
     try {
       const { released, stillStuck } = await releaseStuckProcessingTags();
-      await recordHeartbeat("rolloff-stuck", stillStuck === 0, stillStuck === 0 ? (released ? `released ${released} stranded contact(s) for retry` : "none stuck") : `${stillStuck} still tagged`, new Date(), { count: stillStuck });
+      await recordHeartbeat("rolloff-stuck", stillStuck === 0, stillStuck === 0 ? (released ? `released ${released} stranded contact(s) for retry` : "none stuck") : `${stillStuck} contact(s) still marked as mid-send`, new Date(), { count: stillStuck });
     } catch (err: unknown) {
       logEvent({ event: "rolloff_stuck_sweep_failed", error: errorMessage(err) });
     }
@@ -353,10 +398,11 @@ export async function run(contactIdOverride?: string): Promise<void> {
   let skipped = 0;
   let retried = 0;
   let errored = 0;
+  const unanswered: string[] = [];
   try {
     for (const entry of queue) {
       try {
-        const outcome = await processEntry(entry, { findContracts: page ? (phone) => checkMtsContractList(page!, phone) : undefined });
+        const outcome = await processEntry(entry, { findContracts: page ? (phone) => checkMtsContractList(page!, phone) : undefined, unanswered });
         if (outcome === "sent") sent++;
         else if (outcome === "retry") retried++;
         else skipped++;
@@ -379,6 +425,19 @@ export async function run(contactIdOverride?: string): Promise<void> {
     await browser?.close();
   }
 
+  // The heartbeat for the reply webhook, which nothing else can see stop.
+  if (!dryRun && !cliContactId) {
+    await recordHeartbeat(
+      "replies-unanswered",
+      unanswered.length === 0,
+      unanswered.length === 0
+        ? `no lead text has waited more than ${UNANSWERED_AFTER_MIN} minutes for an answer`
+        : `${unanswered.length} lead text(s) have waited more than ${UNANSWERED_AFTER_MIN} minutes with no answer, so replies may have stopped. Check the "Customer Replied" workflow in GoHighLevel is on.`,
+      new Date(),
+      { count: unanswered.length }
+    );
+  }
+
   console.log(`\nDone. Sent: ${sent}, skipped: ${skipped}, held for retry: ${retried}, errored: ${errored}`);
   await recordHeartbeat("rolloff-send", errored === 0, `${dryRun ? "test mode: " : ""}checked ${queue.length}, sent ${sent}, skipped ${skipped}, retry ${retried}, errored ${errored}`);
   // A partly failed run must fail the job, so GitHub tells someone.
@@ -392,7 +451,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   dotenv.default.config({ path: new URL("../.env.local", import.meta.url).pathname });
   run().catch(async (err) => {
     console.error(err);
-    await recordHeartbeat("rolloff-send", false, `crashed: ${errorMessage(err) ?? err}`);
+    await recordHeartbeat("rolloff-send", false, "stopped with an error before finishing (the GitHub run log has the details)");
     process.exit(1);
   });
 }

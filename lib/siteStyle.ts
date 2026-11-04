@@ -1,4 +1,4 @@
-import { escapeHtml } from "./contract.js";
+import { escapeHtml } from "./html.js";
 
 /** Shared by /dashboard, /admin and the 404 page so they look like one product. */
 export const SITE_STYLES = `

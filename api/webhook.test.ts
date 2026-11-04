@@ -1,5 +1,6 @@
 import { startFlagServer } from "../lib/testHelpers/flagServer.js";
 import { memoryLockBackend, setLockBackendForTests } from "../lib/replyLock.js";
+import { memoryParkedBackend, setParkedBackendForTests } from "../lib/parkedReplies.js";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { startMockGhlServer, type MockGhlServer } from "../lib/testHelpers/mockGhlServer.js";
@@ -298,6 +299,8 @@ test("test mode: a hand-off to the office writes no tag, note or star", async ()
 });
 
 test("kill switch: a flag saying paused, an erroring flag, or an unreachable flag all pause replies", async () => {
+  const parked = memoryParkedBackend();
+  setParkedBackendForTests(parked);
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "hi"]]);
   flag.set({ active: false });
   assert.equal((await send("sam", "conv_sam", "hi")).body.action, "paused");
@@ -313,6 +316,10 @@ test("kill switch: a flag saying paused, an erroring flag, or an unreachable fla
     process.env.KILLSWITCH_URL = real;
   }
   assert.equal(ghl.sentMessages.length, 0);
+  assert.equal(ghl.taggedContacts.length + ghl.notes.length, 0, "nothing is written to GHL while paused");
+  // The text is kept for when the bot runs again (lib/parkedReplies.ts).
+  assert.equal(JSON.parse(parked.files.get("sam")!).body, "hi");
+  setParkedBackendForTests(null);
   flag.set({ active: true });
   assert.equal((await send("sam", "conv_sam", "hi")).body.ok, true);
 });

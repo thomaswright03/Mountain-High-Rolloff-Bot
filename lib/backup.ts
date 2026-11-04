@@ -3,8 +3,8 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { blobFolder } from "./blobNamespace.js";
 
-// Copies the private Blob store's legal records (signed contracts and
-// signatures, parked office notices, funnel counts) into a local folder,
+// Copies the private Blob store's records (old e-signed contracts, replies
+// parked while the bot was paused, funnel counts, reply-quality checks) into a local folder,
 // which .github/workflows/backup-blobs.yml uploads as a GitHub Actions
 // artifact. restoreFromDirectory puts them back, optionally under a scratch
 // prefix. README.md has the procedure.
@@ -37,7 +37,9 @@ export const vercelBlobStore: BlobStore = {
 
 /** The folders worth keeping, in the live or test namespace. */
 export function backupPrefixes(env: NodeJS.ProcessEnv = process.env): string[] {
-  return [`${blobFolder("contracts", env)}/`, `${blobFolder("pending", env)}/`, "funnel/"];
+  // contracts/ holds e-signed contracts from before booking by text
+  // (2026-10-21); nothing writes there now, but they are kept.
+  return [`${blobFolder("contracts", env)}/`, `${blobFolder("parked", env)}/`, "funnel/", "quality/"];
 }
 
 export async function backupToDirectory(store: BlobStore, dir: string, prefixes: string[] = backupPrefixes()): Promise<{ files: number; bytes: number }> {

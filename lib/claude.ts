@@ -56,7 +56,7 @@ async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, 
     await recordHeartbeat("claude", true, `last call: ${purpose}`);
     return message;
   } catch (err: unknown) {
-    await recordHeartbeat("claude", false, String((err as { message?: string })?.message ?? err).slice(0, 200));
+    await recordHeartbeat("claude", false, "the last call to the AI failed, so that lead was handed to the office");
     throw err;
   }
 }

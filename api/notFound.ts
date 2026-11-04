@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
 import { findCompany } from "../lib/companies.js";
-import { escapeHtml } from "../lib/contract.js";
+import { escapeHtml } from "../lib/html.js";
 import { SITE_NAV_STYLES, SITE_STYLES, siteMasthead } from "../lib/siteStyle.js";
 
 const BRAND = "Mountain High Disposal";
