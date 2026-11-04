@@ -3,9 +3,14 @@ import { logEvent } from "./logging.js";
 import { recordHeartbeat } from "./runStatus.js";
 
 /** The one place the model is named. */
-/** The API serves this ID as is, with no dated snapshot behind it to pin
- * (docs/eval-results.md, 2026-10-22). Re-run `npm run eval` after changing
- * CLAUDE_MODEL_ID or when Anthropic announces a model update. */
+/** Model decision (2026-11-04, review finding #14): Claude 5 models have no
+ * dated snapshot IDs to pin; the API serves these IDs as is (the eval
+ * records the served ID in docs/eval-results.md). So drift is caught
+ * instead: every draft goes through lib/draftChecks.ts before sending and
+ * /admin "Reply quality" shows the 7-day pass rate, and the model IDs are
+ * part of the prompt fingerprint, so changing them fails CI until the Model
+ * check is re-run. Re-check by 2027-02-01 whether a newer model or a pinned
+ * ID is available; switching models is Thomas's call. */
 export const CLAUDE_MODEL = process.env.CLAUDE_MODEL_ID || "claude-sonnet-5";
 
 /** The cheaper model for the tiny yes/no and JSON-extraction calls. Sonnet

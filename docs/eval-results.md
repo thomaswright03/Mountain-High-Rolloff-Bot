@@ -32,7 +32,9 @@ Run: 2026-10-22T09:26:14.375Z ([Model check run](https://github.com/thomaswright
 | hand-off: keeps booking | pass | - |
 | hand-off: defers one detail but keeps going | pass | - |
 
-**Earlier runs, kept on record:**
+## Notes kept on record
+
+Earlier runs:
 
 - [Run 39751196438](https://github.com/thomaswright03/Mountain-High-Rolloff-Bot/actions/runs/39751196438) passed everything, but its "weight limit question" draft said "$85 extra per ton". The fee is one flat $85 over 1 ton. The facts block now says so, and `lib/draftChecks.ts` fails any draft that pairs $85 with "per ton". This run's draft gets it right.
 - The run before that missed one hand-off case, a friendly "take care!" after a no. That case was replaced: missing that sign-off only means the bot can still answer if the lead texts again, so it isn't something the check must catch. **Accepted miss:** the hand-off check may not flag a friendly sign-off after a no. If a later model change fixes or worsens this, note it here.

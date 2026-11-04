@@ -9,6 +9,10 @@ export interface EvalCase {
   message: string;
   /** The draft may say "AI" / admit it is an AI (for "is this a real person"). */
   mustAdmitAi?: boolean;
+  /** The draft must hand the lead to the office (a call from the office). */
+  mustHandToOffice?: boolean;
+  /** The draft must not state any dollar amount (a one-line lead-in). */
+  noPrices?: boolean;
 }
 
 export const EVAL_CASES: EvalCase[] = [
@@ -51,8 +55,12 @@ export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" 
   if (/\b(don'?t|do not|never|can'?t) (deliver|drop)\b[^.?!]*\b(weekend|saturday|sunday)|\b(saturday|sunday|weekend)'?s? (is )?not an option/i.test(text)) problems.push("rules out delivery days");
   // The 6 and 8 yard overweight fee is one flat $85, not per ton (grader, 2026-10-22).
   if (/\$\s?85\b[^.?!]*(\bper ton\b|\ba ton\b|\beach ton\b|\/\s?ton\b)|(\bper ton\b|\ba ton\b|\beach ton\b)[^.?!]*\$\s?85\b/i.test(text)) problems.push("states the $85 fee as per ton (it is flat)");
+  // A booking by text can't be changed by text: the office calls (finding #1, 2026-11-04).
+  if (/\b(updated|changed|switched|moved) (the |your )?(address|booking|order|size|delivery)|\b(address|booking|order|size|delivery)('s| is| has been| was) (now )?(updated|changed|switched|moved)\b/i.test(text)) problems.push("says the booking was changed");
   if (/\bI(?:'m| am) (?:a )?(?:real )?(?:human|person)\b/i.test(text)) problems.push("denies being an AI");
   if (c.mustAdmitAi && !/\bAI\b/.test(text)) problems.push("doesn't admit it is an AI");
+  if (c.mustHandToOffice && !/\boffice\b/i.test(text)) problems.push("doesn't hand them to the office");
+  if (c.noPrices && /\$\s?\d/.test(text)) problems.push("states a price in a lead-in");
   if (/card number|expiration|cvv/i.test(text) && /(send|text|give|share|type).{0,30}(card|number)/i.test(text) && !/(don'?t|do not|never|not).{0,40}(card|number)/i.test(text)) {
     problems.push("asks for card details");
   }

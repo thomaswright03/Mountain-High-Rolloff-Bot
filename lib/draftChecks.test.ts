@@ -27,3 +27,13 @@ test("a polite close isn't mistaken for a booking claim", () => {
   assert.deepEqual(gradeDraft("no worries, glad you're all set! text us if you ever need one"), []);
   assert.ok(gradeDraft("your dumpster is scheduled").includes("says it is booked"));
 });
+
+test("a draft that says the booking or address was changed is caught; handing to the office isn't", () => {
+  assert.ok(gradeDraft("done, I updated the address to 412 Oak St").includes("says the booking was changed"));
+  assert.ok(gradeDraft("your booking has been changed to the 30 yard").includes("says the booking was changed"));
+  assert.deepEqual(gradeDraft("no problem, the office will give you a quick call to set it up at that address"), []);
+  const c = { name: "", message: "", mustHandToOffice: true, noPrices: true };
+  assert.deepEqual(gradeDraft("sweet, here's everything", { ...c, mustHandToOffice: false }), []);
+  assert.ok(gradeDraft("sure thing, it's $400", c).includes("doesn't hand them to the office"));
+  assert.ok(gradeDraft("sure thing, it's $400", c).includes("states a price in a lead-in"));
+});
