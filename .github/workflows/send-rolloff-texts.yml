@@ -9,16 +9,16 @@ name: Send roll-off texts
 # checks MTS's real Contracts data before every real send, so nobody who
 # already finished booking gets texted to finish.
 #
-# TEST MODE (Thomas, 2026-10-10: don't reach out to any real leads yet):
-# DRY_RUN is "true" unless the repo variable DRY_RUN is set to something
-# else (Settings > Secrets and variables > Actions > Variables), so going
-# live or back to test mode needs no commit. Going live also needs
-# ROLLOFF_TCPA_CONSENT_CONFIRMED set to true in lib/rollOff.ts, and
-# KILLSWITCH_URL set: with DRY_RUN off, a missing or unreachable kill-switch
-# flag means PAUSED (lib/killswitch.ts).
+# LIVE since 2026-11-03: the repo variable DRY_RUN is "false" (the default
+# here is still "true", so a missing variable means test mode; Settings >
+# Secrets and variables > Actions > Variables, no commit needed) and
+# ROLLOFF_TCPA_CONSENT_CONFIRMED is true in lib/rollOff.ts. With DRY_RUN
+# off, a missing or unreachable kill-switch flag (KILLSWITCH_URL) means
+# PAUSED (lib/killswitch.ts).
 #
 # A failed or partly failed step fails the job. The send step runs even if
-# pick-up failed, and a final step reports any failure to Hitta.
+# pick-up failed, and a final step marks the failed job Down on /admin,
+# which is how Thomas hears about it (README "Who gets alerted").
 on:
   schedule:
     # Every 30 minutes, same as the residential bot's send-outreach.yml
@@ -62,6 +62,7 @@ jobs:
       # Reads MTS's roll-off lead list and tags new leads in GHL. Skipped,
       # not failed, until the MTS login secrets are added.
       - name: Pick up new roll-off leads
+        id: pickup
         run: |
           if [ -z "$MTS_EMAIL" ] || [ -z "$MTS_PASSWORD" ]; then
             echo "::notice::MTS_EMAIL / MTS_PASSWORD secrets not set yet, skipping lead pick-up."
@@ -80,10 +81,10 @@ jobs:
           # Same Blob folders as the Vercel site's production, so /admin sees this job.
           BLOB_NAMESPACE: production
 
-      # Every contact it checks comes from GHL. GHL is on hold (Thomas,
-      # 2026-10-10: they may set up a new GHL account for this), so this
-      # step is skipped, not failed, until the GHL secrets are added.
+      # Every contact it checks comes from GHL (connected since 2026-10-22).
+      # Skipped, not failed, if the GHL secrets are ever removed.
       - name: Send roll-off texts
+        id: send
         if: ${{ !cancelled() }}
         run: |
           if [ -z "$GHL_API_TOKEN" ] || [ -z "$GHL_LOCATION_ID" ]; then
@@ -105,17 +106,17 @@ jobs:
           # Same Blob folders as the Vercel site's production, so /admin sees this job.
           BLOB_NAMESPACE: production
 
-      # Tells Thomas (through Hitta) when either step failed. Skipped, with a
-      # warning in the run log, until the HITTA_API_KEY secret is added.
+      # Marks the failed job Down on /admin and /admin/status.json, which
+      # Thomas's CAO health check reads (README "Who gets alerted").
       - name: Report a failed run
         if: ${{ failure() }}
         run: |
-          if [ -z "$HITTA_API_KEY" ]; then
-            echo "::warning::The roll-off job failed and HITTA_API_KEY is not set, so nobody was alerted."
-            exit 0
-          fi
-          curl -s -X POST -H "Authorization: Bearer $HITTA_API_KEY" -H "Content-Type: application/json" \
-            -d "{\"project\":\"Mountain High Roll-Off Bot\",\"title\":\"The roll-off bot's scheduled job failed\",\"summary\":\"A run of the roll-off texting job failed or partly failed. Check the GitHub Actions run history for Mountain High Rolloff Bot.\",\"urgency\":\"normal\"}" \
-            https://34-67-123-90.sslip.io/reports || true
+          # Pick-up failed: mark pick-up. Texting failed, or the job broke
+          # before either ran (setup): mark the texting row.
+          if [ "$PICKUP" = "failure" ]; then npx tsx scripts/recordFailedRun.ts rolloff-import "Lead pick-up"; fi
+          if [ "$SEND" = "failure" ] || [ "$PICKUP" != "failure" ]; then npx tsx scripts/recordFailedRun.ts rolloff-send "The texting job"; fi
         env:
-          HITTA_API_KEY: ${{ secrets.HITTA_API_KEY }}
+          PICKUP: ${{ steps.pickup.outcome }}
+          SEND: ${{ steps.send.outcome }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BLOB_NAMESPACE: production
