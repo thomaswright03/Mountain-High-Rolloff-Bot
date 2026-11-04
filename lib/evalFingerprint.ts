@@ -20,6 +20,7 @@ export function customerFacingFingerprint(): string {
   const modes: ReplyMode[] = [
     { kind: "gathering", state: { ...EMPTY_BOOKING }, summarySent: false },
     { kind: "gathering", state: { ...EMPTY_BOOKING, wantsToBook: true, yards: 20 }, summarySent: false },
+    { kind: "gathering", state: { ...EMPTY_BOOKING, wantsToBook: true, yards: 20 }, summarySent: false, offerHere: true },
     { kind: "gathering", state: full, summarySent: true },
     { kind: "gathering", state: full, summarySent: true, nameMismatch: true },
     { kind: "summary_next" },

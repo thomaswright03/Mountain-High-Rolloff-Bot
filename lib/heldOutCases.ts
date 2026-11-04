@@ -12,7 +12,7 @@ import { findCompany } from "./companies.js";
 //
 // Each case is a whole thread, in the shapes real roll-off conversations
 // take (names, numbers and addresses made up), and runs in the same reply
-// mode lib/rollOffReply.ts picks for it. Written 2026-11-04, before their
+// mode lib/rollOffReply.ts picks for it. Each case is written before its
 // first run.
 
 export interface HeldOutCase extends EvalCase {
@@ -74,6 +74,13 @@ export const HELD_OUT_CASES: HeldOutCase[] = [
     message: "cuanto cuesta el de 20 yardas?",
     thread: [{ from: "us", text: OPEN }],
     mode: gathering(EMPTY_BOOKING),
+  },
+  {
+    name: "first interest: says they can sign up by text",
+    message: "yes I still need one, a 20 yard for a garage cleanout",
+    thread: [{ from: "us", text: OPEN }],
+    mode: { kind: "gathering", state: { ...EMPTY_BOOKING, wantsToBook: true, yards: 20 }, summarySent: false, offerHere: true },
+    mustOfferHere: true,
   },
   {
     name: "wants to cancel after signing",

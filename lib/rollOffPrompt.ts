@@ -41,7 +41,7 @@ ${rollOff.serviceArea}
 /** Whether a reply is still gathering answers, or the code is about to
  * append the summary to it (see lib/rollOffReply.ts). */
 export type ReplyMode =
-  | { kind: "gathering"; state: BookingState; summarySent: boolean; nameMismatch?: boolean }
+  | { kind: "gathering"; state: BookingState; summarySent: boolean; nameMismatch?: boolean; offerHere?: boolean }
   | { kind: "summary_next" }
   | { kind: "office_finishes" }
   | { kind: "new_address" }
@@ -147,6 +147,12 @@ confirmed: say the office will sort that out with them on a quick call.`);
     lines.push(`
 They want a dumpster. Ask for the next thing the contract needs: ${needed[0]}.
 Still needed after that: ${needed.slice(1).join("; ") || "nothing"}.`);
+    if (mode.offerHere) {
+      lines.push(`
+This is the first time they've shown interest, so in this reply also tell
+them, in a few words, that you can get them signed up right here over text
+and they don't need to go back to the website. Then ask your question.`);
+    }
   } else {
     lines.push(`
 If they want a dumpster, help them pick a size and start the booking. Ask

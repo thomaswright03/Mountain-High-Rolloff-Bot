@@ -225,7 +225,11 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   } else if (complete) {
     mode = { kind: "office_finishes" };
   } else {
-    mode = { kind: "gathering", state, summarySent: Boolean(sentSummary), nameMismatch: Boolean(sentSummary && onFile && looksLikeAName(latest.body)) };
+    // Thomas, 2026-11-04 (after Sam Fairchild finished on the website
+    // instead): the first time they show interest, say once that they can
+    // sign up right here over text.
+    const offeredHere = history.some((t) => t.direction === "outbound" && /\b(right here|over text|by text)\b/i.test(t.body));
+    mode = { kind: "gathering", state, summarySent: Boolean(sentSummary), nameMismatch: Boolean(sentSummary && onFile && looksLikeAName(latest.body)), offerHere: !sentSummary && state.wantsToBook && !offeredHere };
   }
 
   const hasFullAddress = Boolean(contact.address1 && contact.city && contact.state && contact.postalCode);

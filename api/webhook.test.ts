@@ -436,6 +436,22 @@ test("a draft telling an unsigned lead they're all set is held back for the offi
   assert.ok(tagsOf("sam").includes("ai-needs-human"));
 });
 
+test("the first time they show interest, the bot says once they can sign up right here (Thomas, 2026-11-04)", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes I need a 20 yard"]]);
+  claude.bookingState = { ...FULL, placement: null };
+  claude.draft = "I can get you signed up right here over text. where should we put it?";
+  await send("sam", "conv_sam", "yes I need a 20 yard");
+  assert.match(draftRequest()!.system, /signed up right here over text/);
+});
+
+test("once the bot has said it, it doesn't say it again", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes I need a 20 yard"], ["outbound", "I can get you signed up right here over text. where should we put it?"], ["inbound", "driveway"]]);
+  claude.bookingState = { ...FULL, callBeforeDelivery: null };
+  claude.draft = "got it, want a call before delivery?";
+  await send("sam", "conv_sam", "driveway");
+  assert.doesNotMatch(draftRequest()!.system, /signed up right here over text/);
+});
+
 test("'yes' after the summary doesn't sign anything", async () => {
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "yes"]]);
   claude.bookingState = FULL;

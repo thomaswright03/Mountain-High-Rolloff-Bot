@@ -16,6 +16,8 @@ export interface EvalCase {
   /** A booking is underway but not signed yet, so the draft must not tell
    * them they're set or locked in. */
   unsigned?: boolean;
+  /** The draft must say they can sign up right here over text. */
+  mustOfferHere?: boolean;
 }
 
 export const EVAL_CASES: EvalCase[] = [
@@ -69,6 +71,7 @@ export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" 
   if (c.unsigned && /\b(you'?re|you are|we'?re|that'?s|it'?s) (all )?(set|good to go|locked in|done)\b|\blocks? (in|it in|that in) (your|the) booking\b|\b(booking|it)('s| is) locked in\b/i.test(text) && !/\bfull name\b/i.test(text)) {
     problems.push("says they're set before signing");
   }
+  if (c.mustOfferHere && !/\b(right here|over text|by text|in this text|here in (the|this) (text|thread))\b/i.test(text)) problems.push("doesn't say they can sign up by text");
   if (c.mustHandToOffice && !/\boffice\b/i.test(text)) problems.push("doesn't hand them to the office");
   if (c.noPrices && /\$\s?\d/.test(text)) problems.push("states a price in a lead-in");
   if (/card number|expiration|cvv/i.test(text) && /(send|text|give|share|type).{0,30}(card|number)/i.test(text) && !/(don'?t|do not|never|not).{0,40}(card|number)/i.test(text)) {
