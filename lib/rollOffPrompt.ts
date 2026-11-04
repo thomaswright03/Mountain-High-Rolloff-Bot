@@ -149,9 +149,11 @@ They want a dumpster. Ask for the next thing the contract needs: ${needed[0]}.
 Still needed after that: ${needed.slice(1).join("; ") || "nothing"}.`);
     if (mode.offerHere) {
       lines.push(`
-This is the first time they've shown interest, so in this reply also tell
-them, in a few words, that you can get them signed up right here over text
-and they don't need to go back to the website. Then ask your question.`);
+This is the first time they've shown interest, so start this reply with
+"I can get you signed up right here over text!" and then ask your question,
+for example: "I can get you signed up right here over text! which size works
+best?" Keep it plain and friendly; don't mention the website or anything
+else that sounds like a sales pitch.`);
     }
   } else {
     lines.push(`
