@@ -135,9 +135,6 @@ const COMPANIES: CompanyConfig[] = [
   },
 ];
 
-export function allCompanies(): readonly CompanyConfig[] {
-  return COMPANIES;
-}
 
 export function findCompany(matchValue: string | undefined): CompanyConfig | undefined {
   if (!matchValue) return undefined;

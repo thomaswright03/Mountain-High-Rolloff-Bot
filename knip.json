@@ -1,0 +1,7 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["api/*.ts", "mts-sync/*.ts", "mts-sync/*.js", "scripts/*.ts", "**/*.test.ts"],
+  "project": ["**/*.ts", "**/*.js"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": ["vercel"]
+}

@@ -17,8 +17,7 @@ export const CLAUDE_CHEAP_MODEL = process.env.CLAUDE_CHEAP_MODEL_ID || "claude-h
 /** The stable system prompt as a cacheable block: repeat calls within the
  * cache window read it at a fraction of the price. */
 function cachedSystem(text: string): Anthropic.TextBlockParam[] {
-  // cache_control isn't in this installed SDK version's types, but the API accepts it.
-  return [{ type: "text", text, cache_control: { type: "ephemeral" } } as Anthropic.TextBlockParam];
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
 }
 
 /** The exact model IDs the API answered with (a dated snapshot behind each
@@ -43,16 +42,15 @@ function getClient(): Anthropic {
  * ai-needs-human tag and no reply the rest of the time. None of these
  * short SMS-reply/structured-extraction/classification tasks need deep
  * reasoning, so thinking is disabled outright rather than just giving it
- * more room to work with.
- * `thinking` isn't in this installed SDK version's types (predates the
- * param) but the raw API accepts it — hence the cast. */
+ * more room to work with. (Both models accept "disabled" at their default
+ * effort.) */
 async function createMessage(params: Anthropic.MessageCreateParamsNonStreaming, purpose = "claude"): Promise<Anthropic.Message> {
   try {
-    const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } } as Anthropic.MessageCreateParamsNonStreaming);
+    const message = await getClient().messages.create({ ...params, thinking: { type: "disabled" } });
     servedModels.add(message.model);
     // Token counts per call, so the cost-per-conversation estimate can be checked against real logs.
-    const usage = message.usage as { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | undefined;
-    logEvent({ event: "claude_usage", purpose, model: params.model, servedModel: message.model, inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens, cacheReadTokens: usage?.cache_read_input_tokens ?? 0, cacheWriteTokens: usage?.cache_creation_input_tokens ?? 0 });
+    const usage = message.usage;
+    logEvent({ event: "claude_usage", purpose, model: params.model, servedModel: message.model, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, cacheReadTokens: usage.cache_read_input_tokens ?? 0, cacheWriteTokens: usage.cache_creation_input_tokens ?? 0 });
     await recordHeartbeat("claude", true, `last call: ${purpose}`);
     return message;
   } catch (err: unknown) {

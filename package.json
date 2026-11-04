@@ -12,10 +12,11 @@
     "rolloff:import": "tsx mts-sync/importRollOffLeads.ts",
     "eval": "tsx scripts/evalDrafts.ts",
     "backup": "tsx scripts/backupBlobs.ts blob-backup",
-    "restore": "tsx scripts/restoreBlobs.ts"
+    "restore": "tsx scripts/restoreBlobs.ts",
+    "deadcode": "knip"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
+    "@anthropic-ai/sdk": "^1.4.0",
     "@vercel/blob": "^2.8.1"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "@vercel/node": "^3.2.0",
     "dotenv": "^16.4.5",
     "eslint": "^9.39.5",
+    "knip": "^6.44.1",
     "playwright": "~1.62.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0",
