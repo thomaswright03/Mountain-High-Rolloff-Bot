@@ -175,3 +175,11 @@ test("a delivery address only matches the one on file by house number and street
   assert.equal(isDifferentAddress("my rental on Oak", onFile), true);
   assert.equal(isDifferentAddress("12 Elm St", null), true);
 });
+
+test("every size and price in the summary matches what the bot is allowed to quote", () => {
+  const rollOff = findCompany("Mountain High Disposal")!.rollOff;
+  for (const s of rollOff.contract.sizes) {
+    assert.ok(rollOff.facts.includes(`${s.yards} yard: $${s.pricePerDump}, up to ${s.tonLimit} ton`), `${s.yards} yard`);
+    assert.ok(rollOff.facts.includes(`${s.yards} yard: ${s.dimensions}`), `${s.yards} yard dimensions`);
+  }
+});

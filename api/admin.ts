@@ -121,8 +121,19 @@ const CSS = SITE_STYLES + SITE_NAV_STYLES + `
   input, button { transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease; }
   button:active { transform: scale(.98); }
   input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .mob { display: none; font-size: .78rem; }
-  @media (max-width: 640px) { th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; } .mob { display: block; } }
+  td.detail { overflow-wrap: anywhere; }
+  /* Phones: each row becomes a stacked card (name, status, times, detail),
+     so nothing scrolls sideways. */
+  @media (max-width: 640px) {
+    body { padding: 32px 16px 56px; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    table { border: none; background: none; }
+    thead { display: none; }
+    tbody tr { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; padding: 6px 0; }
+    td { border-bottom: none; padding: 4px 14px; }
+    td[data-label]::before { content: attr(data-label) ": "; color: var(--ink-dim); font-size: .78rem; }
+    td.name { font-weight: 600; }
+  }
 `;
 
 const BRAND = "Mountain High Disposal";
@@ -156,7 +167,7 @@ function statusPage(nonce: string, s: AdminStatus): string {
     return `<h2>${tier}</h2><table><thead><tr><th>Function</th><th>Status</th><th>Last checked</th><th>Last success</th><th>Detail</th></tr></thead><tbody>${rows
       .map(
         (f) =>
-          `<tr><td>${escapeHtml(f.name)}</td><td><span class="badge ${f.status}"><span aria-hidden="true">${SYMBOL[f.status]}</span> ${f.status}</span><span class="dim mob">Checked ${escapeHtml(denverTime(f.last_checked))}</span></td><td>${escapeHtml(denverTime(f.last_checked))}</td><td>${escapeHtml(denverTime(f.last_success))}</td><td>${escapeHtml(f.detail)}${f.next_expected_run ? `<br /><span class="dim">Next run expected ${escapeHtml(denverTime(f.next_expected_run))}</span>` : ""}</td></tr>`
+          `<tr><td class="name">${escapeHtml(f.name)}</td><td><span class="badge ${f.status}"><span aria-hidden="true">${SYMBOL[f.status]}</span> ${f.status}</span></td><td data-label="Last checked">${escapeHtml(denverTime(f.last_checked))}</td><td data-label="Last success">${escapeHtml(denverTime(f.last_success))}</td><td class="detail">${escapeHtml(f.detail)}${f.next_expected_run ? `<br /><span class="dim">Next run expected ${escapeHtml(denverTime(f.next_expected_run))}</span>` : ""}</td></tr>`
       )
       .join("")}</tbody></table>`;
   };

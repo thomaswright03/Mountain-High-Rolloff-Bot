@@ -122,18 +122,19 @@ test("the numbers: 90 Denver days, each thing counted on its own day", async () 
   assert.equal(total, 2);
 });
 
-test("the page says why numbers may be zero: test mode, test contracts, no store", async () => {
+test("the page says why numbers may be zero, in plain words: test mode, no store", async () => {
   process.env.DRY_RUN = "true";
   const cookie = await signIn();
   let r = await call(data, "GET", { cookie });
   assert.ok(r.body.notices.some((n: string) => /Test mode/.test(n)));
-  assert.ok(r.body.notices.some((n: string) => /marked TEST/.test(n)));
+  assert.ok(!r.body.notices.some((n: string) => /marked TEST|contract/i.test(n)), "booking by text is real, so no test-contract notice");
 
   setFunnelBackendForTests({ ...store, ready: () => false });
   r = await call(data, "GET", { cookie });
   assert.equal(r.status, 200);
   assert.ok(r.body.stats.every((d: any) => d.reached + d.responded + d.contractsSent + d.contractsSigned === 0));
-  assert.ok(r.body.notices.some((n: string) => /No Blob store/.test(n)));
+  assert.ok(r.body.notices.some((n: string) => /nowhere to save its counts/.test(n)));
+  assert.ok(!r.body.notices.some((n: string) => /Blob|Vercel/.test(n)));
 });
 
 test("if the store fails, the page gets a plain error, not a crash", async () => {
@@ -146,5 +147,5 @@ test("if the store fails, the page gets a plain error, not a crash", async () =>
   const cookie = await signIn();
   const r = await call(data, "GET", { cookie });
   assert.equal(r.status, 500);
-  assert.match(r.body.error, /try again/);
+  assert.match(r.body.error, /Try again/);
 });

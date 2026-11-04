@@ -35,8 +35,10 @@ export interface QualitySummary {
   held: number;
 }
 
-/** Drafts checked and held back over the last QUALITY_WINDOW_DAYS. */
-export async function loadQualitySummary(now: Date = new Date()): Promise<QualitySummary> {
+/** Drafts checked and held back over the last QUALITY_WINDOW_DAYS, or
+ * null when no store is connected. */
+export async function loadQualitySummary(now: Date = new Date()): Promise<QualitySummary | null> {
+  if (!getFunnelBackend().ready()) return null;
   const since = now.getTime() - QUALITY_WINDOW_DAYS * 86_400_000;
   const files = (await getFunnelBackend().list(`${QUALITY_FOLDER}/`)).filter((f) => f.uploadedAt.getTime() >= since);
   return { checked: files.length, held: files.filter((f) => f.pathname.startsWith(`${QUALITY_FOLDER}/held/`)).length };

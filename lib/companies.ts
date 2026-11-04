@@ -130,7 +130,6 @@ const COMPANIES: CompanyConfig[] = [
         overfillFee: 100,
         // Mountain High's own roll-off rental terms are not provided yet
         // (open item in STATE.md); until then every contract says it's a test.
-        standardTerms: null,
       },
     },
   },
