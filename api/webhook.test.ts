@@ -404,6 +404,54 @@ test("their full name right after the summary signs it: tagged, noted for the of
   assert.ok(ghl.starredConversations.includes("conv_sam"), "starred so the office sees it");
 });
 
+test("Sam Fairchild's thread (2026-11-03): a question after the summary doesn't re-send it, and 'Samuel' signs for 'Sam'", async () => {
+  const q = "I signed when I submitted the form, do I need to do another signature?";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", q], ["outbound", "yep just need it here too, reply with your full name"], ["inbound", "Samuel Lee"]]);
+  claude.bookingState = FULL;
+  const state = await send("sam", "conv_sam", "Samuel Lee");
+  assert.equal(state.body.action, "signed");
+  assert.ok(tagsOf("sam").includes("ai-rolloff-confirmed"));
+  const payload = parseBookingNote(ghl.notes.find((n) => n.body.startsWith(AI_ROLLOFF_BOOKING_NOTE_MARKER))!.body)!;
+  assert.equal(payload.signedName, "Samuel Lee");
+});
+
+test("an answered question after the summary keeps waiting on the signature instead of sending the summary again", async () => {
+  const text = "Thank you for your help!!";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", "is it still 7 days?"], ["outbound", "yep, 7 days"], ["inbound", text]]);
+  claude.bookingState = FULL;
+  claude.draft = "you're welcome! just reply with your full name to sign";
+  await send("sam", "conv_sam", text);
+  assert.deepEqual(ghl.sentMessages.map((m) => m.message), ["you're welcome! just reply with your full name to sign"]);
+  assert.match(draftRequest()!.system, /waiting for them to sign/);
+});
+
+test("a draft telling an unsigned lead they're all set is held back for the office", async () => {
+  const text = "Thank you for your help!!";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", `sweet\n\n${SUMMARY}`], ["inbound", text]]);
+  claude.bookingState = FULL;
+  claude.draft = "perfect, you're all set Sam! office will call before delivery";
+  const state = await send("sam", "conv_sam", text);
+  assert.equal(state.body.action, "held_unsafe_draft");
+  assert.equal(ghl.sentMessages.length, 0);
+  assert.ok(tagsOf("sam").includes("ai-needs-human"));
+});
+
+test("the first time they show interest, the bot says once they can sign up right here (Thomas, 2026-11-04)", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes I need a 20 yard"]]);
+  claude.bookingState = { ...FULL, placement: null };
+  claude.draft = "I can get you signed up right here over text. where should we put it?";
+  await send("sam", "conv_sam", "yes I need a 20 yard");
+  assert.match(draftRequest()!.system, /signed up right here over text/);
+});
+
+test("once the bot has said it, it doesn't say it again", async () => {
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes I need a 20 yard"], ["outbound", "I can get you signed up right here over text. where should we put it?"], ["inbound", "driveway"]]);
+  claude.bookingState = { ...FULL, callBeforeDelivery: null };
+  claude.draft = "got it, want a call before delivery?";
+  await send("sam", "conv_sam", "driveway");
+  assert.doesNotMatch(draftRequest()!.system, /signed up right here over text/);
+});
+
 test("'yes' after the summary doesn't sign anything", async () => {
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes call me first"], ["outbound", SUMMARY], ["inbound", "yes"]]);
   claude.bookingState = FULL;

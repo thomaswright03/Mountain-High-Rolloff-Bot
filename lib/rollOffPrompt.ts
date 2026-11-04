@@ -41,7 +41,7 @@ ${rollOff.serviceArea}
 /** Whether a reply is still gathering answers, or the code is about to
  * append the summary to it (see lib/rollOffReply.ts). */
 export type ReplyMode =
-  | { kind: "gathering"; state: BookingState; summarySent: boolean; nameMismatch?: boolean }
+  | { kind: "gathering"; state: BookingState; summarySent: boolean; nameMismatch?: boolean; offerHere?: boolean }
   | { kind: "summary_next" }
   | { kind: "office_finishes" }
   | { kind: "new_address" }
@@ -70,6 +70,11 @@ summary does that.
 If they'd rather talk to someone, or need something the facts don't cover,
 the office can call them to book it instead. Once they want the call, tell
 them the office will give them a call to finish it up, and stop there.
+If they say they already booked, submitted the form or paid online, don't
+book it again here and don't ask them to sign: thank them and say the
+office will check it and give them a call. Never tell them they're all
+set, booked or locked in: only their signature on the summary does that,
+and our system confirms it, not you.
 Every call comes from a different number, never this text thread: the
 driver's call before drop-off, and the office's call for payment or to
 finish a booking. Whenever you mention a call, say it'll come from a
@@ -142,6 +147,14 @@ confirmed: say the office will sort that out with them on a quick call.`);
     lines.push(`
 They want a dumpster. Ask for the next thing the contract needs: ${needed[0]}.
 Still needed after that: ${needed.slice(1).join("; ") || "nothing"}.`);
+    if (mode.offerHere) {
+      lines.push(`
+This is the first time they've shown interest, so start this reply with
+"I can get you signed up right here over text!" and then ask your question,
+for example: "I can get you signed up right here over text! which size works
+best?" Keep it plain and friendly; don't mention the website or anything
+else that sounds like a sales pitch.`);
+    }
   } else {
     lines.push(`
 If they want a dumpster, help them pick a size and start the booking. Ask
