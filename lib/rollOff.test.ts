@@ -66,20 +66,12 @@ test("rejectTemplateMarkers passes plain text and refuses any template marker, s
   assert.throws(() => rejectTemplateMarkers("here you go [[CONTRACT_LINK]]"), UnexpectedMarkerError);
 });
 
-test("plan: no cold open while the lead is under 10 minutes old — they may still be on the form", () => {
-  const plan = planRollOffText({ tags: [], coldOpenSent: false, contactDateAdded: new Date(NOW.getTime() - 5 * 60_000).toISOString(), history: [], now: NOW });
-  assert.ok("wait" in plan);
-});
-
-test("plan: cold open once the lead is 10+ minutes old, or when GHL gave no date", () => {
-  const old = planRollOffText({ tags: [], coldOpenSent: false, contactDateAdded: new Date(NOW.getTime() - 11 * 60_000).toISOString(), history: [], now: NOW });
-  assert.deepEqual(old, { send: "cold_open" });
-  const undated = planRollOffText({ tags: [], coldOpenSent: false, history: [], now: NOW });
-  assert.deepEqual(undated, { send: "cold_open" });
+test("plan: the cold open is due as soon as the lead is picked up, like the residential bot", () => {
+  assert.deepEqual(planRollOffText({ tags: [], coldOpenSent: false, history: [], now: NOW }), { send: "cold_open" });
 });
 
 test("plan: cold open even if the contact has an older, unrelated conversation with us", () => {
-  const plan = planRollOffText({ tags: [], coldOpenSent: false, contactDateAdded: "2026-01-01T00:00:00Z", history: [turn("outbound", 2000)], now: NOW });
+  const plan = planRollOffText({ tags: [], coldOpenSent: false, history: [turn("outbound", 2000)], now: NOW });
   assert.deepEqual(plan, { send: "cold_open" });
 });
 

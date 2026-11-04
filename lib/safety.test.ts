@@ -24,8 +24,9 @@ test("card details, a human request or a legal mention escalate", () => {
   assert.equal(evaluateInbound("I'll call my lawyer").action, "escalate");
 });
 
-test("quiet hours: 8am up to (not including) 10pm in the brand's timezone", () => {
+test("quiet hours: 8am up to (not including) 9pm in the brand's timezone, the TCPA limit", () => {
   assert.equal(isWithinQuietHours(new Date("2026-10-10T14:00:00Z"), "America/Denver"), true); // 8am
   assert.equal(isWithinQuietHours(new Date("2026-10-10T13:59:00Z"), "America/Denver"), false); // 7:59am
-  assert.equal(isWithinQuietHours(new Date("2026-10-11T04:00:00Z"), "America/Denver"), false); // 10pm
+  assert.equal(isWithinQuietHours(new Date("2026-10-11T02:59:00Z"), "America/Denver"), true); // 8:59pm
+  assert.equal(isWithinQuietHours(new Date("2026-10-11T03:00:00Z"), "America/Denver"), false); // 9pm
 });

@@ -168,17 +168,16 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
   // When this booking attempt started: the pick-up note's time
   // (importRollOffLeads.ts), since an existing contact's dateAdded is old.
   const landedAt = leadLandedAt(contact.dateAdded, notes);
-  const plan = planRollOffText({ tags, coldOpenSent, contactDateAdded: landedAt, history, now });
+  const plan = planRollOffText({ tags, coldOpenSent, history, now });
   if ("wait" in plan) {
     logEvent({ event: "rolloff_text_not_due", contactId, reason: plan.wait });
     return "skipped";
   }
   const stage = plan.send;
 
-  // Unlike the residential cold open, every roll-off text waits for a
-  // reasonable hour: even the first one goes out at least 10 minutes after
-  // they left the form, so there's no "they're on the site right now" reason
-  // to text at 11pm. Due, so the next run in hours picks it back up.
+  // Every roll-off text, the first one included, waits for 8am-9pm local, same
+  // as the residential bot's cold open and follow-ups. Due, so the next run in
+  // hours picks it back up.
   if (!isWithinQuietHours(now, company.timezone)) {
     logEvent({ event: "rolloff_text_held_quiet_hours", contactId, stage });
     return "retry";
