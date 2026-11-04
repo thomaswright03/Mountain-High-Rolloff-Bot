@@ -27,12 +27,13 @@ export interface AdminStatus {
   functions: FunctionStatus[];
 }
 
-/** The GitHub Actions job is scheduled every 10 minutes. */
-export const JOB_INTERVAL_MIN = 10;
+/** The GitHub Actions job is scheduled every 30 minutes, like the
+ * residential bot (Thomas, 2026-11-03). */
+export const JOB_INTERVAL_MIN = 30;
 /** Later than this after the last run is a warning; twice that is down. GitHub's
- * scheduler is often a few minutes late, so one missed slot isn't an alarm. */
-const JOB_WARN_MIN = 30;
-const JOB_DOWN_MIN = 60;
+ * scheduler is often late, so one missed slot isn't an alarm. */
+const JOB_WARN_MIN = 60;
+const JOB_DOWN_MIN = 120;
 
 /** Everything the page needs from outside, so tests can supply it. */
 export interface StatusInputs {

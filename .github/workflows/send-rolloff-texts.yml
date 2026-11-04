@@ -3,7 +3,7 @@ name: Send roll-off texts
 # Roll-off dumpster abandoned-cart texts (Thomas, 2026-10-10). First picks
 # up new leads from MTS's roll-off lead list (mts-sync/importRollOffLeads.ts),
 # then runs mts-sync/sendRollOffTexts.ts, which sends whichever text is due for each
-# contact tagged ai-rolloff-eligible: the first text ~30 min after they
+# contact tagged ai-rolloff-eligible: the first text ~10 min after they
 # leave the booking form, a next-day nudge, and one final nudge three days
 # later. Needs Playwright because it
 # checks MTS's real Contracts data before every real send, so nobody who
@@ -21,7 +21,9 @@ name: Send roll-off texts
 # pick-up failed, and a final step reports any failure to Hitta.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Every 30 minutes, same as the residential bot's send-outreach.yml
+    # (Thomas, 2026-11-03). Every 10 used too many paid Actions minutes.
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
 
 concurrency:

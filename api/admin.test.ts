@@ -111,7 +111,7 @@ function inputs(over: Partial<StatusInputs> = {}): StatusInputs {
 
 test("everything healthy is OK; stale or missing is never OK", () => {
   assert.equal(buildStatus(inputs()).overall, "OK");
-  const stale = buildStatus(inputs({ beats: { ...inputs().beats, "rolloff-send": { ...inputs().beats["rolloff-send"]!, lastRun: "2026-10-20T17:20:00Z" } } }));
+  const stale = buildStatus(inputs({ beats: { ...inputs().beats, "rolloff-send": { ...inputs().beats["rolloff-send"]!, lastRun: "2026-10-20T16:50:00Z" } } }));
   assert.equal(stale.functions.find((f) => f.name === "Scheduled texts")!.status, "Warning");
   const veryStale = buildStatus(inputs({ beats: { ...inputs().beats, "rolloff-import": { ...inputs().beats["rolloff-import"]!, lastRun: "2026-10-20T15:00:00Z" } } }));
   assert.equal(veryStale.functions.find((f) => f.name === "Lead pick-up from MTS")!.status, "Down");
@@ -159,9 +159,9 @@ test("a run paused by the kill switch, or an unreachable flag with test mode off
   assert.match(permission.detail, /The bot can send/);
 });
 
-test("no run for over 60 minutes makes the overall status down", () => {
+test("no run for over 120 minutes makes the overall status down", () => {
   const base = inputs();
-  const old = { ...base.beats["rolloff-send"]!, lastRun: "2026-10-20T16:30:00Z" };
+  const old = { ...base.beats["rolloff-send"]!, lastRun: "2026-10-20T15:30:00Z" };
   assert.equal(buildStatus(inputs({ beats: { ...base.beats, "rolloff-send": old } })).overall, "Down");
 });
 

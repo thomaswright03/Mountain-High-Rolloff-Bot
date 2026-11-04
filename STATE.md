@@ -8,7 +8,7 @@ Texts people who start booking a roll-off dumpster on mountainhighdisposal.com b
 - Tests: `npm test` (195), `npm run typecheck`, `npm run lint` pass. CI runs all three.
 
 ## Parts
-- GitHub Actions every 10 min: `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
+- GitHub Actions every 30 min (same as the residential bot): `mts-sync/importRollOffLeads.ts` then `sendRollOffTexts.ts`. Daily `backup-blobs.yml`.
 - Vercel: `api/webhook.ts` (replies), `api/contract.ts` (e-sign), `api/dashboard.ts`, `api/admin.ts` (+ `/admin/status.json`, lowercase enums).
 - Safety: kill switch (fails closed when live), DRY_RUN (repo variable), `ROLLOFF_TCPA_CONSENT_CONFIRMED` in `lib/rollOff.ts` (true since 2026-11-03).
 - Blob folders: `lib/blobNamespace.ts`; workflows set `BLOB_NAMESPACE=production` so job and Vercel share `status/`, `pending/`, `contracts/`.
