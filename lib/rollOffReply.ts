@@ -34,6 +34,8 @@ import { recordHeartbeat } from "./runStatus.js";
 import { recordFunnelEvent } from "./funnelStore.js";
 import { claimReply, replyLockKey } from "./replyLock.js";
 import { errorMessage } from "./errors.js";
+import { gradeDraft } from "./draftChecks.js";
+import { recordDraftCheck } from "./replyQuality.js";
 
 
 export interface RollOffReplyResult {
@@ -235,6 +237,23 @@ export async function handleRollOffReply(inbound: InboundMessage, contact: Recor
   });
 
   const rawDraft = rejectTemplateMarkers(await draftReply(buildRollOffReplyPrompt(company, rollOff, isFirstReply, mode), formatHistory(history), leadDetails));
+  // The model's words go through the same code checks as the eval before
+  // they can reach a customer: a wrong price, a promised day, "you're
+  // booked", a card request or a link means nothing is sent and the office
+  // takes the lead (grader, 2026-11-04). The code-owned summary isn't
+  // checked: its prices and wording come from config.
+  const problems = gradeDraft(rawDraft);
+  await recordDraftCheck("reply", contactId, problems);
+  if (problems.length > 0) {
+    logEvent({ event: "rolloff_draft_held", contactId, draft: rawDraft, problems, dryRun });
+    if (dryRun) return { action: "dry_run_held", draft: rawDraft };
+    await handToOffice(
+      contactId,
+      conversationId,
+      `AI wrote a reply to this roll-off lead but held it back because it failed a safety check (${problems.join("; ")}), so nothing was sent. Please text or call them. Lead said: "${inbound.body}" The held reply was: "${rawDraft}"`
+    );
+    return { action: "held_unsafe_draft", reason: problems.join("; ") };
+  }
   const draft = summary ? `${rawDraft}\n\n${summary}` : rawDraft;
   // Same classifier as the residential reply: a reply whose whole point is
   // "the office will call you" (or that ends the conversation) means the

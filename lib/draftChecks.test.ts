@@ -22,3 +22,8 @@ test("links, template markers, unapproved amounts, date promises, 'booked' claim
   assert.ok(gradeDraft("we don't deliver on weekends, so saturday's not an option").includes("rules out delivery days"));
   assert.ok(gradeDraft("just a quick text from me", { name: "bot", message: "", mustAdmitAi: true }).includes("doesn't admit it is an AI"));
 });
+
+test("a polite close isn't mistaken for a booking claim", () => {
+  assert.deepEqual(gradeDraft("no worries, glad you're all set! text us if you ever need one"), []);
+  assert.ok(gradeDraft("your dumpster is scheduled").includes("says it is booked"));
+});

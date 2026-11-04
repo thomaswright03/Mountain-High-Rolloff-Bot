@@ -1,5 +1,8 @@
-// Code checks for a model draft, used by `npm run eval` (scripts/evalDrafts.ts)
-// and unit-tested offline in lib/draftChecks.test.ts.
+// Code checks for a model draft. The same checks run in three places:
+// before every model-drafted text is sent (lib/rollOffReply.ts and
+// mts-sync/sendRollOffTexts.ts: a failing draft is never sent, the office
+// gets the lead), in `npm run eval` (scripts/evalDrafts.ts), and offline in
+// lib/draftChecks.test.ts.
 
 export interface EvalCase {
   name: string;
@@ -40,7 +43,9 @@ export function gradeDraft(draft: string, c: EvalCase = { name: "", message: "" 
   if (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|tonight)\b[^.?!]*\b(deliver|drop|arrive|there|scheduled|booked)|\b(deliver|drop|arrive|scheduled|booked)\b[^.?!]*\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|tonight)\b/i.test(text) && !/\b(can't|cannot|office|confirm)/i.test(text)) {
     problems.push("promises a delivery date");
   }
-  if (/\b(you'?re|you are|it'?s|it is|all)\s+(booked|scheduled|confirmed|set)\b/i.test(text)) problems.push("says it is booked");
+  // "you're all set" is how a polite close to a "no thanks" reads, so "set"
+  // on its own isn't counted; "booked", "scheduled" and "confirmed" are.
+  if (/\b(you'?re|you are|it'?s|it is|all|dumpster is|dumpster's)\s+(all\s+)?(booked|scheduled|confirmed|reserved)\b/i.test(text)) problems.push("says it is booked");
   // The facts never say delivery (or anything else) is free (live eval, 2026-10-21).
   if (/\bno (delivery )?fee\b|\b(delivery|it)('s| is) (free|included)|\bfree delivery\b|\bthat'?s included\b/i.test(text)) problems.push("says something is free");
   if (/\b(don'?t|do not|never|can'?t) (deliver|drop)\b[^.?!]*\b(weekend|saturday|sunday)|\b(saturday|sunday|weekend)'?s? (is )?not an option/i.test(text)) problems.push("rules out delivery days");

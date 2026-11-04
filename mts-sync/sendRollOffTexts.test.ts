@@ -142,7 +142,7 @@ test("a lead who left the form 30+ minutes ago gets the fixed cold open, tagged 
 test("the first text that goes out counts the lead as reached on the dashboard, once", async () => {
   assert.equal(await processEntry({ contactId: "fresh" }, live()), "sent");
   assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "sent");
-  assert.deepEqual([...funnel.files.keys()].sort(), ["funnel/reached/fresh.json", "funnel/reached/fu1_due.json"]);
+  assert.deepEqual([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).sort(), ["funnel/reached/fresh.json", "funnel/reached/fu1_due.json"]);
   // A later text to someone already counted changes nothing.
   const first = funnel.files.get("funnel/reached/fu1_due.json")!;
   assert.equal(await processEntry({ contactId: "fu2_due" }, live()), "sent");
@@ -152,7 +152,7 @@ test("the first text that goes out counts the lead as reached on the dashboard, 
 test("nothing is counted as reached when nothing went out", async () => {
   assert.equal(await processEntry({ contactId: "fresh" }, { now: NOW, consentConfirmed: false }), "retry");
   assert.equal(await processEntry({ contactId: "fresh" }, live({ findContracts: async () => [{ custNumber: "42", name: "Jane Doe", medium: "Website", status: "Active", saleDate: "10/10/2026" }] })), "skipped");
-  assert.equal(funnel.files.size, 0);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0);
 });
 
 test("a name that isn't a name never reaches the text", async () => {
@@ -184,7 +184,7 @@ test("DRY_RUN never sends and never writes to GHL", async () => {
   assert.equal(ghl.sentMessages.length, 0);
   assert.equal(ghl.taggedContacts.length, 0);
   assert.equal(ghl.notes.length, 0);
-  assert.equal(funnel.files.size, 0, "and counts nothing on the dashboard");
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0, "and counts nothing on the dashboard");
 });
 
 test("DND, no phone, Loveland, out-of-state, and already flagged/opted-out/booked/finished leads are never texted", async () => {
@@ -302,4 +302,13 @@ test("a contact stranded with the processing tag is released and noted; one clai
     assert.ok(ghl.removedTags.some((t) => t.contactId === "stuck_old" && t.tag === "ai-rolloff-processing"));
     assert.ok(!ghl.removedTags.some((t) => t.contactId === "stuck_new"));
   }
+});
+
+test("a follow-up that fails a safety check is never sent: the office gets the lead and it counts as held", async () => {
+  claude.draft = "the 20 yard is $350 and we can drop it friday, finish at mountainhighdisposal.com";
+  assert.equal(await processEntry({ contactId: "fu1_due" }, live()), "skipped");
+  assert.equal(ghl.sentMessages.length, 0);
+  assert.ok(tagsOf("fu1_due").includes("ai-needs-human"));
+  assert.ok(ghl.notes.some((n) => n.contactId === "fu1_due" && /held it back.*unapproved amount \$350/.test(n.body)));
+  assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/held/")));
 });

@@ -136,7 +136,7 @@ test("a roll-off lead's first reply counts as responded on the dashboard, once",
   setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", "yes"], ["outbound", "great"], ["inbound", "a 20 yard"]]);
   await send("sam", "conv_sam", "a 20 yard");
   assert.equal(funnel.files.get("funnel/responded/sam.json"), first, "a second text doesn't move the day");
-  assert.equal(funnel.files.size, 1);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 1);
 });
 
 test("a reply in test mode, or from someone who isn't a roll-off lead, isn't counted", async () => {
@@ -149,7 +149,7 @@ test("a reply in test mode, or from someone who isn't a roll-off lead, isn't cou
   } finally {
     process.env.DRY_RUN = "false";
   }
-  assert.equal(funnel.files.size, 0);
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 0);
 });
 
 test("a contact tagged for both flows is left to the residential bot, with no side effects", async () => {
@@ -345,7 +345,7 @@ test("while gathering, the prompt asks for the next thing the contract needs", a
   const state = await send("sam", "conv_sam", text);
   assert.equal(state.body.action, "sent");
   assert.match(draftRequest()!.system, /Ask for the next thing the contract needs: whether it's for a business or personal use/);
-  assert.equal(funnel.files.size, 1, "only 'responded'");
+  assert.equal([...funnel.files.keys()].filter((k) => k.startsWith("funnel/")).length, 1, "only 'responded'");
 });
 
 test("once every answer is in, the code-owned summary goes out after the model's lead-in", async () => {
@@ -563,4 +563,33 @@ test("the address on file said a different way isn't treated as a new address", 
   await send("sam", "conv_sam", text);
   assert.deepEqual(ghl.sentMessages.map((m) => m.message), [`sweet, here's everything\n\n${SUMMARY}`]);
   assert.ok(!tagsOf("sam").includes("ai-needs-human"));
+});
+
+for (const [name, draft, problem] of [
+  ["a wrong price", "the 20 yard is $350 per dump", /unapproved amount \$350/],
+  ["a promised day", "sweet, we'll drop it off friday morning", /promises a delivery date/],
+  ["a booking claim", "you're all booked for the 20 yard", /says it is booked/],
+  ["our own website", "you can finish it at mountainhighdisposal.com", /sends a link/],
+] as const) {
+  test(`a model reply with ${name} is never sent: the office gets the lead`, async () => {
+    const text = "how much is the 20 yard?";
+    setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+    claude.draft = draft;
+    const state = await send("sam", "conv_sam", text);
+    assert.equal(state.body.action, "held_unsafe_draft");
+    assert.equal(ghl.sentMessages.length, 0);
+    assert.ok(tagsOf("sam").includes("ai-needs-human"));
+    const note = ghl.notes.find((n) => n.contactId === "sam" && n.body.includes("held it back"));
+    assert.match(note!.body, problem);
+    assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/held/")));
+  });
+}
+
+test("a clean reply is sent and counted as passing", async () => {
+  const text = "how much is the 20 yard?";
+  setHistory("conv_sam", [["outbound", COLD_OPEN], ["inbound", text]]);
+  claude.draft = "the 20 yard is $400 per dump, up to 4 tons";
+  await send("sam", "conv_sam", text);
+  assert.equal(ghl.sentMessages.length, 1);
+  assert.ok([...funnel.files.keys()].some((k) => k.startsWith("quality/pass/")));
 });

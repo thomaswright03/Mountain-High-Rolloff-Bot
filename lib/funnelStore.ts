@@ -78,6 +78,12 @@ export function memoryFunnelBackend(): FunnelBlobBackend & { files: Map<string, 
   };
 }
 
+/** The same store, for other small records kept beside the funnel
+ * (lib/replyQuality.ts). */
+export function getFunnelBackend(): FunnelBlobBackend {
+  return backend;
+}
+
 /** False until a Blob store is connected to the Vercel project. */
 export function funnelStoreReady(): boolean {
   return backend.ready();

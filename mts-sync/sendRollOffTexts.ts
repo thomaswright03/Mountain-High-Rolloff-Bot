@@ -52,6 +52,8 @@ import { checkMtsContractList } from "./mtsStatusCheck.js";
 import { leadLandedAt } from "../lib/rollOffIntake.js";
 import { recordFunnelEvent } from "../lib/funnelStore.js";
 import { errorMessage } from "../lib/errors.js";
+import { gradeDraft } from "../lib/draftChecks.js";
+import { recordDraftCheck } from "../lib/replyQuality.js";
 
 const SEND_DELAY_MS = 1500; // small pause between real sends, avoids bursting
 // Same blast-radius idea as Kaizen's sendOutreach.ts PACED_SEND_CAP.
@@ -216,6 +218,19 @@ export async function processEntry(entry: PendingEntry, opts: ProcessOptions = {
           firstName
         )
       );
+
+  // Same code checks as every model-drafted reply (lib/draftChecks.ts): a
+  // follow-up that fails one is never sent, and the office gets the lead.
+  if (!isColdOpen) {
+    const problems = gradeDraft(draft);
+    await recordDraftCheck("follow-up", contactId, problems, now);
+    if (problems.length > 0) {
+      logEvent({ event: "rolloff_follow_up_held", contactId, stage, draft, problems });
+      await addTag(contactId, NEEDS_HUMAN_TAG);
+      await addNote(contactId, `AI wrote roll-off follow-up #${stage === "follow_up_1" ? 1 : 2} but held it back because it failed a safety check (${problems.join("; ")}), so nothing was sent. Please follow up with them yourself. The held text was: "${draft}"`);
+      return "skipped";
+    }
+  }
 
   // Claimed before the slow MTS check + send, same as Kaizen's sendOutreach.ts
   // PROCESSING_TAG: narrows (GHL tags have no compare-and-swap) the window
