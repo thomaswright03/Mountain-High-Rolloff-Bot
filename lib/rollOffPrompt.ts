@@ -50,7 +50,7 @@ const LABELS: Record<string, string> = {
   yards: "which size they want",
   customerType: "whether it's for a business or personal use",
   placement: "where they want it placed (driveway, street, side of the house...)",
-  callBeforeDelivery: "whether they want a call before it's delivered",
+  callBeforeDelivery: "whether they want the driver to call them before dropping it off (say the driver calls from a different number, not this one)",
 };
 
 function stillNeeded(state: BookingState): string[] {
@@ -69,6 +69,10 @@ summary does that.
 If they'd rather talk to someone, or need something the facts don't cover,
 the office can call them to book it instead. Once they want the call, tell
 them the office will give them a call to finish it up, and stop there.
+Every call comes from a different number, never this text thread: the
+driver's call before drop-off, and the office's call for payment or to
+finish a booking. Whenever you mention a call, say it'll come from a
+different number, so they pick up.
 
 NEVER send, type or mention a link, website or web address. Booking
 happens in this text thread.

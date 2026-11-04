@@ -57,12 +57,12 @@ test("the summary states every term the MTS contract's agreements cover, and no 
     "- delivered to 12 Elm St, Greeley, CO 80631",
     "- placement: driveway, left side",
     "- personal use",
-    "- we'll call before we deliver",
+    "- the driver will call you before drop-off, from a different number than this one",
     "- 7 day rental, picked up on day 7 unless you call the office to extend. extra days have a daily fee",
     "- over the weight limit: $50 per ton over 4 tons, and $100 per ton over 10 tons",
     "- filling it past the top is $100",
     "- street placement needs a permit before delivery",
-    "- the office will call to take payment, nothing is charged by text",
+    "- the office will call you from a different number to take payment, nothing is charged by text",
   ]) {
     assert.ok(summary.includes(line), line);
   }
@@ -76,6 +76,14 @@ test("parseBookingSummary reads back exactly what was sent, with a lead-in in fr
     const sent = `sweet, here's everything\n\n${buildBookingSummary(company, onFile, a)}`;
     assert.deepEqual(parseBookingSummary(company, onFile, sent), a);
   }
+});
+
+test("a summary sent with the old wording (before 2026-11-03) can still be signed", () => {
+  const old = buildBookingSummary(company, onFile, answers)
+    .replace("- the driver will call you before drop-off, from a different number than this one", "- we'll call before we deliver")
+    .replace("- the office will call you from a different number to take payment, nothing is charged by text", "- the office will call to take payment, nothing is charged by text");
+  assert.ok(old.includes("- we'll call before we deliver"));
+  assert.deepEqual(parseBookingSummary(company, onFile, `sweet\n\n${old}`), answers);
 });
 
 test("parseBookingSummary refuses a summary for a different address or an edited one", () => {
@@ -128,7 +136,7 @@ test("the booking note round-trips, newest first", () => {
 test("the signed reply never says booked and never promises a day", () => {
   const reply = buildSignedReply("Sam", 20);
   assert.ok(!/\bbooked\b/i.test(reply));
-  assert.match(reply, /office will give you a call to take payment/);
+  assert.match(reply, /office will give you a call from a different number to take payment/);
   assert.ok(buildSignedReply(undefined, 20).startsWith("thanks, you're signed"));
 });
 

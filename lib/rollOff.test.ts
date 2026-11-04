@@ -129,6 +129,7 @@ test("roll-off prompts book in the thread with the approved facts: no link, neve
     assert.ok(prompt.includes("Rental period: 7 days."));
     assert.ok(prompt.includes("20 yard: $400, up to 4 tons"));
     assert.ok(prompt.includes("NEVER ask for, accept, or repeat a card number"));
+    assert.ok(prompt.includes("Every call comes from a different number, never this text thread"));
     // Lead-supplied data never goes in a system prompt.
     assert.ok(!prompt.includes("Jane"));
   }

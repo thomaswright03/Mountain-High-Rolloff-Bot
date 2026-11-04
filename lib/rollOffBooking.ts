@@ -120,10 +120,25 @@ function sizeFor(rollOff: RollOffConfig, yards: number): RollOffSize | undefined
 export const SUMMARY_SIGN_LINE = "reply with your full name to sign and lock it in ✍️";
 const SUMMARY_FIRST_LINE = "here's your roll-off booking:";
 
+/** Summary wording. "2026-10" is what went out before 2026-11-03, kept so a
+ * lead who got that summary can still sign it after a deploy. */
+type SummaryWording = "current" | "2026-10";
+const CALL_LINE: Record<SummaryWording, string> = {
+  current: "- the driver will call you before drop-off, from a different number than this one",
+  "2026-10": "- we'll call before we deliver",
+};
+const NO_CALL_LINE = "- no call needed before delivery";
+const PAYMENT_LINE: Record<SummaryWording, string> = {
+  current: "- the office will call you from a different number to take payment, nothing is charged by text",
+  "2026-10": "- the office will call to take payment, nothing is charged by text",
+};
+
 /** The code-owned summary the lead signs. Every line here is something the
  * office has agreed to: price and weight from config, the form's own rental
- * period and drop-off window, and the card handled by a call. */
-export function buildBookingSummary(company: CompanyConfig, onFile: ContactOnFile, answers: BookingAnswers): string {
+ * period and drop-off window, and the card handled by a call. Calls come
+ * from a different number than the text thread (Thomas, 2026-11-03), so the
+ * summary says so. */
+export function buildBookingSummary(company: CompanyConfig, onFile: ContactOnFile, answers: BookingAnswers, wording: SummaryWording = "current"): string {
   const rollOff = company.rollOff;
   const size = sizeFor(rollOff, answers.yards!);
   if (!size || !answers.customerType || !answers.placement || answers.callBeforeDelivery === null) {
@@ -141,13 +156,13 @@ export function buildBookingSummary(company: CompanyConfig, onFile: ContactOnFil
     `- delivered to ${formatAddress(onFile)}`,
     `- placement: ${answers.placement}`,
     `- ${answers.customerType === "Business" ? "business" : "personal"} use`,
-    `- ${answers.callBeforeDelivery ? "we'll call before we deliver" : "no call needed before delivery"}`,
+    answers.callBeforeDelivery ? CALL_LINE[wording] : NO_CALL_LINE,
     `- ${days} day rental, picked up on day ${days} unless you call the office to extend. extra days have a daily fee`,
     `- over the weight limit: ${size.overweightFee}`,
     `- filling it past the top is $${rollOff.contract.overfillFee}`,
     `- street placement needs a permit before delivery`,
     `- no ${listWithOr(rollOff.contract.notAllowed)}`,
-    `- the office will call to take payment, nothing is charged by text`,
+    PAYMENT_LINE[wording],
     "",
     SUMMARY_SIGN_LINE,
   ].join("\n");
@@ -167,10 +182,11 @@ export function parseBookingSummary(company: CompanyConfig, onFile: ContactOnFil
   const yards = Number(/^- (\d+) yard dumpster/.exec(lines[1] ?? "")?.[1]);
   const placement = /^- placement: (.+)$/.exec(lines[4] ?? "")?.[1] ?? null;
   const type = /^- (business|personal) use$/.exec(lines[5] ?? "")?.[1];
-  const call = lines[6] === "- we'll call before we deliver" ? true : lines[6] === "- no call needed before delivery" ? false : null;
+  const call = Object.values(CALL_LINE).includes(lines[6] ?? "") ? true : lines[6] === NO_CALL_LINE ? false : null;
   if (!sizeFor(company.rollOff, yards) || !placement || !type || call === null) return null;
   const answers: BookingAnswers = { yards, customerType: type === "business" ? "Business" : "Personal", placement, callBeforeDelivery: call };
-  return buildBookingSummary(company, onFile, answers) === text.slice(start).trimEnd() ? answers : null;
+  const sent = text.slice(start).trimEnd();
+  return (["current", "2026-10"] as const).some((w) => buildBookingSummary(company, onFile, answers, w) === sent) ? answers : null;
 }
 
 /** Our newest text, if it's a booking summary. */
@@ -322,7 +338,7 @@ export function buildBookingEmail(company: CompanyConfig, p: RollOffBookingPaylo
 /** Fixed text sent right after they sign. Doesn't say "booked": the
  * contract isn't in MTS until the office enters it with their card. */
 export function buildSignedReply(firstName: string | undefined, yards: number): string {
-  return `thanks${firstName ? ` ${firstName}` : ""}, you're signed :) the office will give you a call to take payment and get your ${yards} yard on the schedule`;
+  return `thanks${firstName ? ` ${firstName}` : ""}, you're signed :) the office will give you a call from a different number to take payment and get your ${yards} yard on the schedule`;
 }
 
 /** Reads the booking answers out of the conversation (system prompt; the
